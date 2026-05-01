@@ -200,10 +200,6 @@ VI NORMAL
      z2            Set alternative keymap to Russian keymap
      ze            Switch to English keymap
      zf            Switch to alternative keymap
-     zL            Set td ex option to 2
-     zl            Set td ex option to 1
-     zr            Set td ex option to -1
-     zR            Set td ex option to -2
      [#]/          Regex search prompt, move down 1 or # matches
      [#]?          Regex search prompt, move up 1 or # matches
      [#]n
@@ -1084,15 +1080,6 @@ EX OPTIONS
              Print autocomplete suggestions on the fly
      ts[val=8]
              Number of spaces used to represent a tab
-     td[val=1]
-             Current text direction context
-
-             This option accepts four meaningful values:
-             2       Exclusively left-to-right
-             1       Follow dctxs[] (in conf.c), defaulting to left-to-right
-             -1      Follow dctxs[], defaulting to right-to-left
-             -2      Exclusively right-to-left
-
      pr[val=0]
              Print register
 
@@ -1180,7 +1167,7 @@ EXINIT ENV VAR
 
      Examples:
 
-     export EXINIT='td 2:order 0:lim 5000'
+     export EXINIT='lim 5000'
              Set ex options for optimal long line performance
 
      export EXINIT='b-1:r ./vi.c:b-1'
@@ -1275,7 +1262,7 @@ CODE MAP
      | 537 kmap.h   |  keymap translation  |
      | 540 vi.h     |  definitions/aux     |
      +--------------+----------------------+
-     | 342 conf.c   |  hl/ft/td config     |
+     | 342 conf.c   |  hl/ft config        |
      | 366 term.c   |  low level IO        |
      | 410 ren.c    |  positioning/syntax  |
      | 614 uc.c     |  UTF-8 support       |

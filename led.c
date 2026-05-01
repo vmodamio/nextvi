@@ -91,8 +91,6 @@ static char *kmap_map(int kmap, int c)
 /* map cursor horizontal position to terminal column number */
 int led_pos(char *s, int pos)
 {
-	if (dir_context(s) < 0)
-		return xleft + xcols - pos - 1;
 	return pos - xleft;
 }
 
@@ -556,20 +554,18 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 					goto pac_;
 				i = is->sug_pt >= 0 ? is->sug_pt : led_lastword(sb->s + pre) + pre;
 				if (suggestsb && search(sb->s + i, sb->s_n - i)) {
-					is->sug = suggestsb->s;
-					pac_:;
-					preserve(int, xtd, xtd = 2;)
-					preserve(int, ftidx,)
-					syn_setft(ac_ft);
-					for (int left = 0; r < xrows; r++) {
-						RS(2, led_crender(is->sug, r, 0, left, left+xcols))
-						left += xcols;
-						if (left >= rstates[2].pos[rstates[2].n])
-							break;
-					}
-					restore(xtd)
-					restore(ftidx)
-					r++;
+				is->sug = suggestsb->s;
+				pac_:;
+				preserve(int, ftidx,)
+				syn_setft(ac_ft);
+				for (int left = 0; r < xrows; r++) {
+					RS(2, led_crender(is->sug, r, 0, left, left+xcols))
+					left += xcols;
+					if (left >= rstates[2].pos[rstates[2].n])
+						break;
+				}
+				restore(ftidx)
+				r++;
 				}
 				led_redraw(sb->s, r, orow, crow, ctop, flg);
 				continue;
@@ -663,10 +659,8 @@ int led_prompt(sbuf *sb, char *insert, int *kmap, ins_state *is, int ps, int flg
 		is = &_is;
 	}
 	preserve(int, xleft, xleft = 0;)
-	preserve(int, xtd, xtd = 2;)
 	key = led_line(sb, ps, n, &post, 0, &postref, -1,
 			&off, kmap, is, 0, xrow, xtop, flg);
-	restore(xtd)
 	restore(xleft)
 	if (key == '\n' && flg & 1) {
 		lbuf_dedup(tempbufs[0].lb, sb->s + n, sb->s_n - n)

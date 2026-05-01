@@ -93,11 +93,9 @@ char *itoa(int n, char s[])
 static void vi_drawmsg(char *msg)
 {
 	syn_blockhl = -1;
-	preserve(int, xtd, xtd = 2;)
 	preserve(int, ftidx,)
 	syn_setft(bar_ft);
 	RS(2, led_crender(msg, xrows, 0, 0, xcols))
-	restore(xtd)
 	restore(ftidx)
 }
 #define vi_drawmsg_mpt(msg) { vi_drawmsg(msg); if (!xmpt) xmpt = 1; }
@@ -155,15 +153,11 @@ static void vi_drawrow(int row)
 		} else
 			vi_drawnum(lbuf_wordend(xb, i1, -2, &nrow, &noff))
 		tmp[ren_next(c, ren_pos(c, xoff), 1)-1-xleft+vi_lncol] = *vi_word;
-		preserve(int, xorder, xorder = 0;)
 		preserve(int, syn_blockhl, syn_blockhl = -1;)
-		preserve(int, xtd, xtd = dir_context(c) * 2;)
 		preserve(int, ftidx,)
 		syn_setft(n_ft);
 		RS(2, led_crender(tmp, row - xtop, 0, 0, xcols))
-		restore(xorder)
 		restore(syn_blockhl)
-		restore(xtd)
 		restore(ftidx)
 		return;
 	}
@@ -188,7 +182,7 @@ static void vi_drawrow(int row)
 		}
 		*c = '\0';
 		l1 = (c - tmp) + (i+i1 - (strlen(tmp) - !!i - !!i1));
-		vi_lncol = dir_context(s) < 0 ? 0 : l1;
+		vi_lncol = l1;
 		memset(c, ' ', l1 - (c - tmp));
 		c[l1 - (c - tmp)] = '\0';
 		led_crender(s, row - xtop, l1, xleft, xleft + xcols - l1)
@@ -589,8 +583,7 @@ static int vi_motion(int vc, int *row, int *off)
 	case 'l':
 		if (!(cs = lbuf_get(xb, *row)))
 			return -1;
-		dir = dir_context(cs);
-		dir = mv == 'h' ? -dir : dir;
+		dir = mv == 'h' ? -1 : +1;
 		for (i = 0; i < cnt; i++)
 			if (vi_nextcol(cs, dir, off))
 				break;
@@ -1563,8 +1556,6 @@ void vi(int init)
 				case 'r':
 				case 'L':
 				case 'R':
-					xtd = isupper(k)+1;
-					xtd = tolower(k) == 'r' ? -xtd : xtd;
 					rstates[0].s = NULL;
 					rstates[1].s = NULL;
 					break;
@@ -1809,7 +1800,6 @@ int main(int argc, char *argv[])
 {
 	int i, j;
 	setup_signals();
-	dir_init();
 	syn_init();
 	temp_open(0, "/hist/", _ft);
 	temp_open(1, "/fm/", fm_ft);

@@ -215,9 +215,6 @@ int ren_cursor(char *s, int pos);
 int ren_noeol(char *s, int p);
 int ren_off(char *s, int p);
 char *ren_translate(char *s, char *ln);
-/* text direction */
-int dir_context(char *s);
-void dir_init(void);
 /* syntax highlighting */
 #define SYN_BD		0x10000
 #define SYN_IT		0x20000
@@ -248,15 +245,15 @@ void dir_init(void);
 #define SYN_ATTSET(a)	(a & SYN_ATT)
 extern int ftidx;
 extern int syn_blockhl;
-char *syn_setft(char *ft);
-void syn_scdir(int scdir);
-void syn_highlight(int *att, char *s, int n);
-char *syn_filetype(char *path);
-int syn_merge(int old, int new);
-void syn_reloadft(int hl, int flg);
-int syn_findhl(int id);
-int syn_addhl(char *reg, int id);
-void syn_init(void);
+#define syn_setft(ft) ((void)(ft))
+#define syn_scdir(scdir) ((void)(scdir))
+#define syn_highlight(att, s, n) ((void)0)
+#define syn_filetype(path) ((void)(path), (char*)NULL)
+#define syn_merge(old, new) (old)
+#define syn_reloadft(hl, flg) ((void)(hl), (void)(flg))
+#define syn_findhl(id) (-1)
+#define syn_addhl(reg, id) ((void)(reg), (void)(id), -1)
+#define syn_init() ((void)0)
 
 /* uc.c: utf-8 helper functions */
 extern unsigned char utf8_length[256];
@@ -399,7 +396,6 @@ struct buf {
 	struct lbuf *lb;
 	int plen, row, off, top;
 	long mtime;			/* modification time */
-	signed char td;			/* text direction */
 };
 /* ex options */
 extern int xleft;
@@ -412,9 +408,7 @@ extern int xhlw;
 extern int xhlp;
 extern int xhlr;
 extern int xled;
-extern int xtd;
 extern int xshape;
-extern int xorder;
 extern int xts;
 extern int xish;
 extern int xgrp;
@@ -452,13 +446,11 @@ extern struct buf *ex_pbuf;
 	xrow = buf->row; \
 	xoff = buf->off; \
 	xtop = buf->top; \
-	xtd = buf->td; \
 
 #define exbuf_save(buf) \
 	buf->row = xrow; \
 	buf->off = xoff; \
 	buf->top = xtop; \
-	buf->td = xtd; \
 
 #define bufs_switchwft(idx) \
 { if (&bufs[idx] != ex_buf) { bufs_switch(idx); syn_setft(xb_ft); } } \
@@ -501,21 +493,6 @@ struct highlight {
 };
 extern struct highlight hls[];
 extern const int hlslen;
-/* direction context: specifies the direction of a whole line */
-struct dircontext {
-	char *pat;
-	int dir;
-};
-extern struct dircontext dctxs[];
-extern const int dctxlen;
-/* direction marks: the direction of patterns in a line */
-struct dirmark {
-	char *pat;
-	int ctx;	/* the direction context for this mark; 0 means any */
-	int dir[8];	/* the direction of a matched text group */
-};
-extern struct dirmark dmarks[];
-extern const int dmarkslen;
 /* character placeholders */
 struct placeholder {
 	int cp[2];	/* the source character codepoint */

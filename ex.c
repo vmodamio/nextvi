@@ -2,15 +2,13 @@ int xleft;			/* the first visible column */
 int xvis;			/* startup flags */
 int xai = 1;			/* autoindent option */
 int xic = 1;			/* ignorecase option */
-int xhl = 1;			/* syntax highlight option */
-int xhll;			/* highlight current line */
-int xhlw;			/* highlight current word */
-int xhlp;			/* highlight {}[]() pair */
-int xhlr;			/* highlight text in reverse direction */
+int xhl = 0;			/* syntax highlight option (disabled) */
+int xhll = 0;			/* highlight current line */
+int xhlw = 0;			/* highlight current word */
+int xhlp = 0;			/* highlight {}[]() pair */
+int xhlr = 0;			/* highlight text in reverse direction */
 int xled = 1;			/* use the line editor */
-int xtd = +1;			/* current text direction */
 int xshape = 1;			/* perform letter shaping */
-int xorder = 1;			/* change the order of characters */
 int xts = 8;			/* number of spaces for tab */
 int xish;			/* interactive shell */
 int xgrp;			/* regex search group */
@@ -116,7 +114,6 @@ static int bufs_open(const char *path, int len)
 	bufs[i].row = 0;
 	bufs[i].off = 0;
 	bufs[i].top = 0;
-	bufs[i].td = +1;
 	bufs[i].mtime = -1;
 	return i;
 }
@@ -130,7 +127,6 @@ void temp_open(int i, char *name, char *ft)
 	tempbufs[i].row = 0;
 	tempbufs[i].off = 0;
 	tempbufs[i].top = 0;
-	tempbufs[i].td = +1;
 	tempbufs[i].mtime = -1;
 	tempbufs[i].ft = ft;
 }
@@ -1066,27 +1062,6 @@ static void *ec_exec(char *loc, char *cmd, char *arg)
 	return NULL;
 }
 
-static void *ec_ft(char *loc, char *cmd, char *arg)
-{
-	int i;
-	for (i = 0; *arg && i < ftslen; i++)
-		if (!strcmp(fts[i].ft, arg)) {
-			arg = fts[i].ft;
-			break;
-		}
-	if (!(loc = syn_setft(*arg ? arg : xb_ft)))
-		return "filetype not found";
-	xb_ft = loc;
-	ex_print(xb_ft, msg_ft)
-	if (led_attsb) {
-		sbuf_free(led_attsb)
-		led_attsb = NULL;
-	}
-	for (i = 1; i < 4; i++)
-		syn_reloadft(syn_findhl(i), 0);
-	return NULL;
-}
-
 static void *ec_cmap(char *loc, char *cmd, char *arg)
 {
 	if (arg[0])
@@ -1311,7 +1286,6 @@ static void *ec_regprint(char *loc, char *cmd, char *arg)
 	}
 	static char buf[5] = "  ";
 	int flg = (xvis & 2) == 0;
-	preserve(int, xtd, xtd = 2;)
 	for (int i = 1; i < LEN(xregs); i++) {
 		if (xregs[i] && i != xpr) {
 			*buf = i;
@@ -1319,7 +1293,6 @@ static void *ec_regprint(char *loc, char *cmd, char *arg)
 			ex_cprint2(xregs[i]->s, msg_ft, -1, xleft ? 0 : 2, xleft, !flg)
 		}
 	}
-	restore(xtd)
 	return NULL;
 }
 
@@ -1434,7 +1407,7 @@ static void *eo_##opt(char *loc, char *cmd, char *arg) { inner }
 	_EO(opt, x##opt = !*arg ? !x##opt : eo_val(arg); return NULL;)
 
 EO(pac) EO(pr) EO(ai) EO(err) EO(ish) EO(ic) EO(mpt) EO(rcm)
-EO(shape) EO(seq) EO(ts) EO(td) EO(order) EO(hll) EO(hlw)
+EO(shape) EO(seq) EO(ts) EO(hll) EO(hlw)
 EO(hlp) EO(hlr) EO(hl) EO(lim) EO(led) EO(vis)
 
 _EO(grp, xgrp = (!*arg ? !xgrp : eo_val(arg)) * 2; return NULL;)
@@ -1481,7 +1454,6 @@ static struct excmd {
 	{"ef", ec_fuzz},
 	{"e!", ec_edit},
 	{"e", ec_edit},
-	{"ft", ec_ft},
 	{"fd", ec_setdir},
 	{"fp", ec_setdir},
 	{"f+", ec_find},
@@ -1530,8 +1502,6 @@ static struct excmd {
 	{"c", ec_insert},
 	{"j", ec_join},
 	EO(ts),
-	EO(td),
-	EO(order),
 	EO(hll),
 	EO(hlw),
 	EO(hlp),

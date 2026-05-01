@@ -267,7 +267,7 @@ return|select|switch|type|var))\\>", A(GR1, BL1 | SYN_BD, YE1)},
 (?:'[a-z'`[\\]*])|([.%$]|[0-9 \t]*)?))(?:([-*-+/%])[ \t]*[0-9]+[ \t]*)*(?:[ \t]*\\|.*?(?:(?<^\\\\)\\||$)[ \t]*)*)[ \t]*\
 (?:([,;]#?)[ \t]*((?:\\|.*?(?:(?<^\\\\)\\||$)[ \t]*)*(?:(?:<.*?(?:(?<^\\\\)<|$)|>.*?(?:(?<^\\\\)>|$))|\
 (?:'[a-z'`[\\]*])|([.$]|[0-9 \t]*)?))(?:([-*-+/%])[ \t]*([0-9]+)[ \t]*)*(?:[ \t]*\\|.*?(?:(?<^\\\\)\\||$))*[ \t]*)*)\
-((pac|pr|ai|ish|err|ic|grp|mpt|rcm|shape|seq|ts|td|order|hl[lwpr]?|left|lim|led|vis)\
+((pac|pr|ai|ish|err|ic|grp|mpt|rcm|shape|seq|ts|hl[lwpr]?|left|lim|led|vis)\
 |[@&!=dmj]|\\?\\?\?!?|\\?!|b[psx]?|p[uh]?|ac?|e[f!]?!?|f[-+><tdp]?|inc|i|sc!?|\
 (?:g!?|s)[ \t]?(.)?|q!?|reg?\\+?|rd?|w(?:q!|[q!])?|u[czb]?|x!?|ya!?|cm!?|cd?)?",
 		A(BL1 | SYN_BD, RE, RE, RE, RE, WH1, MA1, RE, RE, WH1, RE, GR1, CY1, MA1)},
@@ -295,23 +295,6 @@ const int hlslen = LEN(hls);
 /* how to highlight text in the reverse direction */
 const int conf_hlrev = SYN_BGMK(8);
 
-/* right-to-left characters */
-#define CR2L		"ء-يپچژکگی‌-‍؛،»«؟ً-ْٔ"
-/* neutral characters */
-#define CNEUT		"\x1- !-/:-@[-`{-\x7f"
-
-struct dircontext dctxs[] = {
-	{"^[" CR2L "]", -1},
-	{"^[a-zA-Z_0-9]", +1},
-};
-const int dctxlen = LEN(dctxs);
-
-struct dirmark dmarks[] = {
-	{"[" CR2L "][" CNEUT CR2L "]*[" CR2L "]", +1, {-1}},
-	{"^([ \t]+)?([" CNEUT "]*[^" CR2L "]*[^" CR2L CNEUT "](?:[" CNEUT "]+$)?)", -1, {0, 1, -1}},
-	{"[^" CR2L CNEUT "][^" CR2L "]*[^" CR2L CNEUT "](?:[" CNEUT "]+$)?", -1, {-1}},
-};
-const int dmarkslen = LEN(dmarks);
 
 struct placeholder _ph[2] = {
 	{{0x0,0x1f}, "^", 1, 1},
