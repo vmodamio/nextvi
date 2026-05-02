@@ -8,6 +8,15 @@ unsigned int ibuf_pos, ibuf_cnt, ibuf_sz = 128, icmd_pos;
 unsigned char *ibuf, icmd[4096];
 unsigned int texec, tn;
 
+/* Simplified attribute macros for non-highlighting usage */
+#define SYN_FG(att) 0
+#define SYN_BG(att) 0
+#define SYN_BD 0
+#define SYN_IT 0
+#define SYN_RV 0
+#define SYN_FGSET(att) 0
+#define SYN_BGSET(att) 0
+
 void term_init(void)
 {
 	struct winsize win;

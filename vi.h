@@ -218,45 +218,6 @@ char *ren_translate(char *s, char *ln);
 /* text direction */
 int dir_context(char *s);
 void dir_init(void);
-/* syntax highlighting */
-#define SYN_BD		0x10000
-#define SYN_IT		0x20000
-#define SYN_RV		0x40000
-#define SYN_FGMK(f)	(0x100000 | (f))
-#define SYN_BGMK(b)	(0x200000 | (b << 8))
-#define SYN_FLG		0xff0000
-#define SYN_FGSET(a)	(a & 0x1000ff)
-#define SYN_BGSET(a)	(a & 0x20ff00)
-#define SYN_FG(a)	(a & 0xff)
-#define SYN_BG(a)	((a >> 8) & 0xff)
-#define SYN_BS		0x400000	/* grp starting block highlight */
-#define SYN_BE		0x800000	/* grp ending block highlight */
-#define SYN_BSE		0xc00000	/* grp self terminating block highlight */
-#define SYN_BP		0x1000000	/* set is a block attribute passthrough */
-#define SYN_IGN		0x2000000	/* grp ignoring highlight attributes */
-#define SYN_SATT	0x4000000	/* grp inclusion check at start offset */
-#define SYN_EATT	0x8000000	/* grp inclusion check at end offset */
-#define SYN_ATT		0xc000000	/* grp inclusion check from start to end */
-#define SYN_OWR		0x10000000	/* attribute overwrite */
-#define SYN_BSSET(a)	(a & SYN_BS)
-#define SYN_BESET(a)	(a & SYN_BE)
-#define SYN_BSESET(a)	(a & SYN_BSE)
-#define SYN_BPSET(a)	(a & SYN_BP)
-#define SYN_IGNSET(a)	(a & SYN_IGN)
-#define SYN_SATTSET(a)	(a & SYN_SATT)
-#define SYN_EATTSET(a)	(a & SYN_EATT)
-#define SYN_ATTSET(a)	(a & SYN_ATT)
-extern int ftidx;
-extern int syn_blockhl;
-char *syn_setft(char *ft);
-void syn_scdir(int scdir);
-void syn_highlight(int *att, char *s, int n);
-char *syn_filetype(char *path);
-int syn_merge(int old, int new);
-void syn_reloadft(int hl, int flg);
-int syn_findhl(int id);
-int syn_addhl(char *reg, int id);
-void syn_init(void);
 
 /* uc.c: utf-8 helper functions */
 extern unsigned char utf8_length[256];
@@ -394,7 +355,6 @@ void led_done(void);
 
 /* ex.c: command mode */
 struct buf {
-	char *ft;			/* file type */
 	char *path;			/* file path */
 	struct lbuf *lb;
 	int plen, row, off, top;
@@ -406,11 +366,6 @@ extern int xleft;
 extern int xvis;
 extern int xai;
 extern int xic;
-extern int xhl;
-extern int xhll;
-extern int xhlw;
-extern int xhlp;
-extern int xhlr;
 extern int xled;
 extern int xtd;
 extern int xshape;
@@ -446,7 +401,7 @@ extern struct buf *ex_buf;
 extern struct buf *ex_pbuf;
 #define istempbuf(buf) (buf >= tempbufs && buf < tempbufs + LEN(tempbufs))
 #define xb_path ex_buf->path
-#define xb_ft ex_buf->ft
+
 #define xb ex_buf->lb
 #define exbuf_load(buf) \
 	xrow = buf->row; \
@@ -460,20 +415,17 @@ extern struct buf *ex_pbuf;
 	buf->top = xtop; \
 	buf->td = xtd; \
 
-#define bufs_switchwft(idx) \
-{ if (&bufs[idx] != ex_buf) { bufs_switch(idx); syn_setft(xb_ft); } } \
-
 void bufs_switch(int idx);
-void temp_open(int i, char *name, char *ft);
+void temp_open(int i, char *name);
 void temp_switch(int i, int swap);
 void temp_write(int i, char *str);
 void temp_pos(int i, int row, int off, int top);
 void ex(void);
 void *ex_exec(const char *ln);
 #define ex_command(ln) { ex_exec(ln); ex_regput(':', ln, 0); }
-void ex_cprint(char *line, char *ft, int r, int c, int left, int flg);
-#define ex_cprint2(line, ft, r, c, left, flg) { RS(2, ex_cprint(line, ft, r, c, left, flg)); }
-#define ex_print(line, ft) { RS(2, ex_cprint(line, ft, -1, 0, 0, 1)); }
+void ex_cprint(char *line, int r, int c, int left, int flg);
+#define ex_cprint2(line, r, c, left, flg) { RS(2, ex_cprint(line, r, c, left, flg)); }
+#define ex_print(line) { RS(2, ex_cprint(line, -1, 0, 0, 1)); }
 void ex_init(char **files, int n);
 void ex_bufpostfix(struct buf *p, int clear);
 int ex_krs(rset **krs, int *dir);
@@ -484,23 +436,6 @@ void ex_regput(unsigned char c, const char *s, int append);
 
 /* conf.c: configuration variables */
 extern const int conf_mode;
-/* map file names to file types */
-struct filetype {
-	char *ft;		/* file type */
-	char *pat;		/* file name pattern */
-};
-extern struct filetype fts[];
-extern const int ftslen;
-/* syntax highlighting patterns */
-struct highlight {
-	char *ft;		/* the filetype of this pattern */
-	char *pat;		/* regular expression */
-	int *att;		/* attributes of the matched groups */
-	unsigned char set;	/* subset index */
-	unsigned char id;	/* id of this hl */
-};
-extern struct highlight hls[];
-extern const int hlslen;
 /* direction context: specifies the direction of a whole line */
 struct dircontext {
 	char *pat;

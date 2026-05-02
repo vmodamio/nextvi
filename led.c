@@ -2,6 +2,11 @@ static sbuf *suggestsb;
 static sbuf *acsb;
 sbuf *led_attsb;
 
+/* Simple attribute definitions for non-highlighting usage */
+#define WH1 15
+#define SYN_BD 0
+#define SYN_OWR 0
+
 int dstrlen(const char *s, char delim)
 {
 	register const char *i;
@@ -201,26 +206,24 @@ void led_render(char *s0, int cbeg, int cend)
 		bound = bsb->s;
 	}
 	memset(att, 0, MIN(n, cterm+1) * sizeof(att[0]));
-	if (xhl)
-		syn_highlight(att, bound ? bound : s0, MIN(n, cterm));
 	free(bound);
-	if (led_attsb && xhl) {
+	if (led_attsb) {
 		led_att *p = (led_att*)led_attsb->s;
 		for (; (char*)p < &led_attsb->s[led_attsb->s_n]; p++) {
 			if (p->s != s0 && p->s)
 				continue;
 			if (!bound)
-				att[p->off] = syn_merge(att[p->off], p->att);
+				att[p->off] = p->att;
 			else if (c && stt[0] <= p->off && stt[c-1] >= p->off) {
 				i = p->off - stt[0];
 				if (i < c && stt[i] == p->off) {
-					att[i] = syn_merge(att[i], p->att);
+					att[i] = p->att;
 					continue; /* text not reordered */
 				}
 				for (l = 0, j = c - 1; l <= j;) {
 					i = l + (j - l) / 2;
 					if (stt[i] == p->off) {
-						att[i] = syn_merge(att[i], p->att);
+						att[i] = p->att;
 						break;
 					} else if (stt[i] < p->off)
 						l = i + 1;
@@ -228,21 +231,6 @@ void led_render(char *s0, int cbeg, int cend)
 						j = i - 1;
 				}
 			}
-		}
-	}
-	if (xhlr && xhl) {
-		for (l = 0, i = 0; i < cterm;) {
-			o = off[i++];
-			if (o < 0)
-				continue;
-			for (l++; off[i] == o; i++);
-			if (o+1 >= n || r->pos[o] + r->wid[o] == r->pos[o + 1])
-				continue;
-			if (r->pos[o + 1] + r->wid[o + 1] != r->pos[o])
-				continue;
-			j = bound ? ctt[l-1] : o;
-			att[j] = syn_merge(att[j], conf_hlrev);
-			att[j+1] = syn_merge(att[j+1], conf_hlrev);
 		}
 	}
 	/* generate term output */
@@ -304,7 +292,6 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 	}
 	if (pos >= xleft + xcols || pos < xleft)
 		xleft = pos < xcols ? 0 : pos - xcols / 2;
-	syn_blockhl = -1;
 	led_crender(r->s, -1, vi_lncol, xleft, xleft + xcols - vi_lncol);
 	term_pos(-1, led_pos(r->s, pos) + vi_lncol);
 	sbufn_cut(sb, psn)
@@ -409,7 +396,6 @@ void led_modeswap(void)
 	if (xvis & 2)
 		ex();
 	else {
-		syn_setft(xb_ft);
 		vi(1);
 	}
 	if (xquit > 0)
@@ -559,8 +545,6 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 					is->sug = suggestsb->s;
 					pac_:;
 					preserve(int, xtd, xtd = 2;)
-					preserve(int, ftidx,)
-					syn_setft(ac_ft);
 					for (int left = 0; r < xrows; r++) {
 						RS(2, led_crender(is->sug, r, 0, left, left+xcols))
 						left += xcols;
@@ -568,7 +552,6 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 							break;
 					}
 					restore(xtd)
-					restore(ftidx)
 					r++;
 				}
 				led_redraw(sb->s, r, orow, crow, ctop, flg);
@@ -581,7 +564,6 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 			int pidx = ex_pbuf - bufs;
 			preserve(int, texec, if (texec == '@') texec = 0;)
 			preserve(int, xquit, xquit = 0;)
-			preserve(int, ftidx,)
 			temp_switch(0, 0);
 			vi(1);
 			exbuf_save(ex_buf)
@@ -592,9 +574,7 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 			else
 				restore(ex_buf)
 			exbuf_load(ex_buf)
-			syn_setft(xb_ft);
 			vi(1); /* redraw past screen */
-			restore(ftidx)
 			term_pos(xrows, 0);
 			if (xquit > 0)
 				restore(xquit)
@@ -623,9 +603,7 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 				*postref = *post = uc_dup(*post);
 			preserve(struct buf*, ex_buf,)
 			int bidx = istempbuf(ex_buf) ? -1 : ex_buf - bufs;
-			preserve(int, ftidx,)
 			led_modeswap();
-			restore(ftidx)
 			if (bidx < 0) {
 				if (ex_buf == tmpex_buf)
 					continue;
