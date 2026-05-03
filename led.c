@@ -353,6 +353,7 @@ static void led_wrap_off2pos(char *s, int off, int *seg, int *col)
 		*col = r->pos[next] - r->pos[start];
 	else
 		*col = off < r->n ? r->pos[off] - r->pos[start] : 0;
+	*col = MIN(*col, led_wrap_width() - 1);
 }
 
 static void led_wrap_render(char *s, int row, int seg)

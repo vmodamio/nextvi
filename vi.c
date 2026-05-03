@@ -260,7 +260,7 @@ static int vi_seg_end(char *s, int start)
 static int vi_off2vcol(char *s, int off)
 {
 	ren_state *r;
-	int n;
+	int n, col;
 	int start = 0, next;
 	if (!s)
 		return 0;
@@ -271,8 +271,10 @@ static int vi_off2vcol(char *s, int off)
 		start = next;
 	next = vi_wrap_next(s, start);
 	if (off >= next)
-		return r->pos[next] - r->pos[start];
-	return off < r->n ? r->pos[off] - r->pos[start] : 0;
+		col = r->pos[next] - r->pos[start];
+	else
+		col = off < r->n ? r->pos[off] - r->pos[start] : 0;
+	return MIN(col, vi_wrap_width() - 1);
 }
 
 static int vi_vcol2off(char *s, int seg, int col)
