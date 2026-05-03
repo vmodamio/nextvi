@@ -17,9 +17,6 @@ DESCRIPTION
      numerous other features. Nextvi remains highly efficient, portable,
      and hackable, ensuring its continued relevance and high quality
      for years to come.
-     Soft line wrapping is enabled by default and configured at compile time
-     with conf_swwidth in conf.c. Set conf_swwidth to zero or below to
-     disable soft wrapping.
 
 OPTIONS
      -a      Enable alternate terminal screen
@@ -144,6 +141,7 @@ VI NORMAL
      2ga           Disable permanent character info row
      [#]gw         Hard word wrap a line to # col limit. Default: 80
      [#]gq         Hard word wrap a buffer to # col limit. Default: 80
+                   Insert edits hard-wrap automatically to conf_hwwidth.
      [#]g~{arg}    Switch character case for arg region # times
      [#]gu{arg}    Switch arg region to lowercase # times
      [#]gU{arg}    Switch arg region to uppercase # times
@@ -934,7 +932,7 @@ EX OPTIONS
      Default value is specified in val=* as part of an argument notation.
      No argument inverts the current value, unless stated otherwise.
 
-     ai[val=0]
+     ai[val=1]
              Indent new lines
 
              This is a max indent length multiplier: val * 128

@@ -414,7 +414,7 @@ void ex_regput(unsigned char c, const char *s, int append);
 
 /* conf.c: configuration variables */
 extern const int conf_mode;
-extern const int conf_swwidth;
+extern const int conf_hwwidth;
 /* character placeholders */
 struct placeholder {
 	int cp[2];	/* the source character codepoint */
