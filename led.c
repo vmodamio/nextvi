@@ -198,6 +198,13 @@ static int led_wrap_breakchar(char *s)
 	return uc_isspace(s) || (uc_len(s) == 1 && strchr(",.;:!?)]}>/-", *s));
 }
 
+static int led_wrap_skipsep(ren_state *r, int off, int n)
+{
+	while (off < n && uc_isspace(r->chrs[off]))
+		off++;
+	return off;
+}
+
 static int led_wrap_eol(ren_state *r)
 {
 	int n = r->n;
@@ -222,8 +229,15 @@ static int led_wrap_next(char *s, int start)
 	if (i >= n)
 		return n;
 	if (last > start)
-		return last;
+		return uc_isspace(r->chrs[last - 1]) && last - 1 > start ?
+			last - 1 : last;
 	return i > start ? i : start + 1;
+}
+
+static int led_wrap_next_start(char *s, int start)
+{
+	ren_state *r = ren_position(s);
+	return led_wrap_skipsep(r, led_wrap_next(s, start), led_wrap_eol(r));
 }
 
 static int led_wrap_count(char *s)
@@ -238,7 +252,7 @@ static int led_wrap_count(char *s)
 	r = ren_position(s);
 	n = led_wrap_eol(r);
 	if (led_wrap_enabled())
-		while ((next = led_wrap_next(s, start)) < n) {
+		while ((next = led_wrap_next_start(s, start)) < n) {
 			cnt++;
 			start = next;
 		}
@@ -266,7 +280,7 @@ static int led_wrap_vrow(int row, int off)
 	rstate->s = NULL;
 	n = led_wrap_eol(ren_position(s));
 	off = MIN(MAX(0, off), n);
-	while ((next = led_wrap_next(s, start)) < n && off >= next) {
+	while ((next = led_wrap_next_start(s, start)) < n && off >= next) {
 		v++;
 		start = next;
 	}
@@ -305,7 +319,7 @@ static int led_wrap_seg_start(char *s, int seg)
 		return 0;
 	n = led_wrap_eol(ren_position(s));
 	while (seg-- > 0 && start < n)
-		start = led_wrap_next(s, start);
+		start = led_wrap_next_start(s, start);
 	return start;
 }
 
@@ -325,7 +339,7 @@ static void led_wrap_off2pos(char *s, int off, int *seg, int *col)
 	int start = 0, next;
 	*seg = 0;
 	off = MIN(MAX(0, off), n);
-	while ((next = led_wrap_next(s, start)) < n && off >= next) {
+	while ((next = led_wrap_next_start(s, start)) < n && off >= next) {
 		(*seg)++;
 		start = next;
 	}

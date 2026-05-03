@@ -120,6 +120,13 @@ static int vi_wrap_breakchar(char *s)
 	return uc_isspace(s) || (uc_len(s) == 1 && strchr(",.;:!?)]}>/-", *s));
 }
 
+static int vi_wrap_skipsep(ren_state *r, int off, int n)
+{
+	while (off < n && uc_isspace(r->chrs[off]))
+		off++;
+	return off;
+}
+
 static int vi_wrap_eol(ren_state *r)
 {
 	int n = r->n;
@@ -144,8 +151,15 @@ static int vi_wrap_next(char *s, int start)
 	if (i >= n)
 		return n;
 	if (last > start)
-		return last;
+		return uc_isspace(r->chrs[last - 1]) && last - 1 > start ?
+			last - 1 : last;
 	return i > start ? i : start + 1;
+}
+
+static int vi_wrap_next_start(char *s, int start)
+{
+	ren_state *r = ren_position(s);
+	return vi_wrap_skipsep(r, vi_wrap_next(s, start), vi_wrap_eol(r));
 }
 
 static int vi_wrap_count_row(int row)
@@ -159,7 +173,7 @@ static int vi_wrap_count_row(int row)
 	ren_state *r = ren_position(s);
 	int n = vi_wrap_eol(r), cnt = 1, start = 0, next;
 	if (vi_wrap_enabled())
-		while ((next = vi_wrap_next(s, start)) < n) {
+		while ((next = vi_wrap_next_start(s, start)) < n) {
 			cnt++;
 			start = next;
 		}
@@ -181,7 +195,7 @@ static int vi_vrow(int row, int off)
 	rstate->s = NULL;
 	n = vi_wrap_eol(ren_position(s));
 	off = MIN(MAX(0, off), n);
-	while ((next = vi_wrap_next(s, start)) < n && off >= next) {
+	while ((next = vi_wrap_next_start(s, start)) < n && off >= next) {
 		v++;
 		start = next;
 	}
@@ -225,7 +239,7 @@ static int vi_seg_start(char *s, int seg)
 		return 0;
 	n = vi_wrap_eol(ren_position(s));
 	while (seg-- > 0 && start < n)
-		start = vi_wrap_next(s, start);
+		start = vi_wrap_next_start(s, start);
 	return start;
 }
 
@@ -248,7 +262,7 @@ static int vi_off2vcol(char *s, int off)
 	r = ren_position(s);
 	n = vi_wrap_eol(r);
 	off = MIN(MAX(0, off), n);
-	while ((next = vi_wrap_next(s, start)) < n && off >= next)
+	while ((next = vi_wrap_next_start(s, start)) < n && off >= next)
 		start = next;
 	return off < r->n ? r->pos[off] - r->pos[start] : 0;
 }
