@@ -1,0 +1,15 @@
+Summary of changes since changes_first.txt
+
+- Added an internal :ft tombstone command so :ft now reports "unknown command" instead of being parsed as :f t.
+- Removed the side line-number gutter feature from vi mode.
+- Removed the #, 2#, 4#, and 8# vi-mode commands that toggled side line numbers.
+- Updated README to stop documenting side line-number commands and related macro examples.
+- Removed bidirectional writing support and made rendering assume left-to-right text only.
+- Removed direction detection and text reordering data from conf.c.
+- Removed direction context and reordering logic from ren.c.
+- Simplified led.c rendering, cursor placement, and hidden-tab display for left-to-right text.
+- Removed td, order, and shape ex options.
+- Removed vi-mode zL, zl, zr, and zR direction toggles.
+- Removed Arabic shaping code and the uc_shape API.
+- Updated README to describe UTF-8 support without bidirectional writing support.
+- Verified the project still builds with ./cbuild.sh build.
