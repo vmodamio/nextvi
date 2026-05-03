@@ -1,0 +1,13 @@
+Summary of shell and external-command removal
+
+- Removed support for executing external commands from ex command mode.
+- Removed the :! command and range filter execution path.
+- Disabled shell forms for :r !cmd and :w !cmd, returning "unsupported command" instead.
+- Disabled register piping through :pu ... !cmd.
+- Removed !cmd! expansion from ex argument parsing.
+- Removed the ish interactive shell option.
+- Removed suspend-to-shell behavior from Ctrl-Z in vi and insert/ex input.
+- Deleted low-level process spawning and shell piping code from term.c, including fork, execvp, waitpid, and $SHELL lookup.
+- Removed command-pipe declarations from vi.h.
+- Updated README to remove shell, pipe, external-command, and suspend documentation/examples.
+- Verified the project still builds with ./cbuild.sh build.
