@@ -138,7 +138,7 @@ static int vi_wrap_next(char *s, int start)
 	ren_state *r = ren_position(s);
 	int n = vi_wrap_eol(r);
 	int width = vi_wrap_width();
-	int base, last = -1, i;
+	int base, last = -1, i, trim;
 	if (!vi_wrap_enabled() || start >= n)
 		return n;
 	base = r->pos[start];
@@ -148,8 +148,13 @@ static int vi_wrap_next(char *s, int start)
 		if (vi_wrap_breakchar(r->chrs[i]))
 			last = i + 1;
 	}
-	if (i >= n)
+	if (i >= n) {
+		for (trim = n; trim > start && uc_isspace(r->chrs[trim - 1]) &&
+				r->pos[trim - 1] - base >= width; trim--);
+		if (trim < n)
+			return trim;
 		return n;
+	}
 	if (last > start)
 		return uc_isspace(r->chrs[last - 1]) && last - 1 > start ?
 			last - 1 : last;
@@ -264,6 +269,9 @@ static int vi_off2vcol(char *s, int off)
 	off = MIN(MAX(0, off), n);
 	while ((next = vi_wrap_next_start(s, start)) < n && off >= next)
 		start = next;
+	next = vi_wrap_next(s, start);
+	if (off >= next)
+		return r->pos[next] - r->pos[start];
 	return off < r->n ? r->pos[off] - r->pos[start] : 0;
 }
 

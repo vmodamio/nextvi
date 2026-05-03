@@ -216,7 +216,7 @@ static int led_wrap_next(char *s, int start)
 	ren_state *r = ren_position(s);
 	int n = led_wrap_eol(r);
 	int width = led_wrap_width();
-	int base, last = -1, i;
+	int base, last = -1, i, trim;
 	if (!led_wrap_enabled() || start >= n)
 		return n;
 	base = r->pos[start];
@@ -226,8 +226,13 @@ static int led_wrap_next(char *s, int start)
 		if (led_wrap_breakchar(r->chrs[i]))
 			last = i + 1;
 	}
-	if (i >= n)
+	if (i >= n) {
+		for (trim = n; trim > start && uc_isspace(r->chrs[trim - 1]) &&
+				r->pos[trim - 1] - base >= width; trim--);
+		if (trim < n)
+			return trim;
 		return n;
+	}
 	if (last > start)
 		return uc_isspace(r->chrs[last - 1]) && last - 1 > start ?
 			last - 1 : last;
@@ -343,7 +348,11 @@ static void led_wrap_off2pos(char *s, int off, int *seg, int *col)
 		(*seg)++;
 		start = next;
 	}
-	*col = off < r->n ? r->pos[off] - r->pos[start] : 0;
+	next = led_wrap_next(s, start);
+	if (off >= next)
+		*col = r->pos[next] - r->pos[start];
+	else
+		*col = off < r->n ? r->pos[off] - r->pos[start] : 0;
 }
 
 static void led_wrap_render(char *s, int row, int seg)
