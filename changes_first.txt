@@ -1,0 +1,12 @@
+Summary of changes
+
+- Removed all filetype support from the editor state and command surface.
+- Deleted the syntax highlighting configuration tables and filetype pattern mappings from conf.c.
+- Removed the syntax highlighting engine and related syn_* APIs from ren.c and vi.h.
+- Removed terminal text attribute generation through term_att, so rendering no longer emits color/style escape sequences for highlighted text.
+- Simplified led.c line rendering to plain text output without per-character attributes.
+- Removed highlight-related options and runtime behavior: hl, hll, hlp, hlr, and hlw.
+- Removed the :ft command from user-facing documentation and added an internal tombstone command so :ft now reports "unknown command" instead of being parsed as :f t.
+- Removed filetype fields and switching logic from buffers and temporary buffers.
+- Updated README to stop advertising syntax highlighting, filetypes, and highlight options.
+- Verified the project still builds with ./cbuild.sh build.
