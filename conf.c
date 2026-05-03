@@ -3,6 +3,9 @@
 /* access mode of new files */
 const int conf_mode = 0600;
 
+/* soft wrap column; <= 0 disables soft wrapping */
+const int conf_swwidth = 80;
+
 struct placeholder _ph[2] = {
 	{{0x0,0x1f}, "^", 1, 1},
 	{{0x200c,0x200d}, "-", 1, 3},

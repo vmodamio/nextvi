@@ -17,6 +17,9 @@ DESCRIPTION
      numerous other features. Nextvi remains highly efficient, portable,
      and hackable, ensuring its continued relevance and high quality
      for years to come.
+     Soft line wrapping is enabled by default and configured at compile time
+     with conf_swwidth in conf.c. Set conf_swwidth to zero or below to
+     disable soft wrapping.
 
 OPTIONS
      -a      Enable alternate terminal screen
