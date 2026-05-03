@@ -346,7 +346,11 @@ static void led_wrap_redraw(char *cur, int lrow, int off, int *pctop)
 	int oldcnt = led_wrap_count_row(lrow);
 	int newcnt = led_wrap_count(cur);
 	int seg, col, cvrow, vmax, row;
+	ren_state *prs = rstate;
+	rstate = rstates + 2;
+	rstate->s = NULL;
 	led_wrap_off2pos(cur, off, &seg, &col);
+	rstate = prs;
 	cvrow = base + seg;
 	if (cvrow < *pctop)
 		*pctop = cvrow;
@@ -377,7 +381,7 @@ static void led_wrap_redraw(char *cur, int lrow, int off, int *pctop)
 }
 
 static void led_printparts(sbuf *sb, int pre, int ps,
-	char *post, int postn, int *poff, int lrow, int *pctop)
+	char *post, int postn, int *poff, int lrow, int *pctop, int wrap)
 {
 	if (!xled) {
 		sbufn_null(sb)
@@ -393,7 +397,7 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 	ren_state *r = ren_position(sb->s + ps);
 	off = r->n - postn;
 	*poff = off;
-	if (led_wrap_enabled() && lrow >= 0) {
+	if (wrap && led_wrap_enabled() && lrow >= 0) {
 		rstate -= 2;
 		led_wrap_redraw(r->s, lrow, off, pctop);
 		sbufn_cut(sb, psn)
@@ -459,10 +463,10 @@ char *led_read(int *kmap, int c)
 #define led_info(buf) \
 { \
 	sbuf_str(sb, buf) \
-	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop); \
+	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop, ai_max >= 0); \
 	sbuf_cut(sb, len) \
 	c = term_read(TK_CTL('l')); \
-	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop); \
+	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop, ai_max >= 0); \
 	goto noredraw; \
 } \
 
@@ -514,7 +518,7 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 	char *cs;
 	int len, c, i;
 	do {
-		led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop);
+		led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop, ai_max >= 0);
 		len = sb->s_n;
 		c = term_read(TK_CTL('l'));
 		noredraw:
@@ -768,7 +772,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 			return key;
 		}
 		sbuf_chr(sb, key)
-		led_printparts(sb, -1, ps, "", 0, &xoff, crow, &ctop);
+		led_printparts(sb, -1, ps, "", 0, &xoff, crow, &ctop, ai_max >= 0);
 		if (!led_wrap_enabled()) {
 			term_chr('\n');
 			term_room(1);
