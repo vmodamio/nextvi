@@ -340,6 +340,20 @@ static void led_wrap_render(char *s, int row, int seg)
 	led_crender(s, row, 0, r->pos[start], r->pos[end])
 }
 
+static void led_wrap_render_line(int vrow, int row, int seg)
+{
+	char *s = lbuf_get(xb, row);
+	static char ch[5] = "~";
+	if (!s) {
+		RS(2, led_crender(lbuf_len(xb) || vrow ? ch : ch+1,
+			vrow, 0, 0, xcols))
+		return;
+	}
+	rstate += row != xrow;
+	led_wrap_render(s, vrow, seg);
+	rstate = rstates;
+}
+
 static void led_wrap_redraw(char *cur, int lrow, int off, int *pctop)
 {
 	int base = led_wrap_vrow(lrow, 0);
@@ -372,9 +386,7 @@ static void led_wrap_redraw(char *cur, int lrow, int off, int *pctop)
 			RS(2, led_crender(lbuf_len(xb) || v ? "~" : "", r, 0, 0, xcols))
 		else {
 			led_wrap_vpos(v, &row, &seg);
-			rstate += row != xrow;
-			led_wrap_render(lbuf_get(xb, row), r, seg);
-			rstate = rstates;
+			led_wrap_render_line(r, row, seg);
 		}
 	}
 	term_pos(cvrow - *pctop, col);

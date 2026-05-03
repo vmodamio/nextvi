@@ -1185,7 +1185,8 @@ static int vc_insert(int cmd)
 	term_pos(vrow - xtop, 0);
 	if (!vi_wrap_enabled())
 		term_room(cmdo);
-	sbuf_mem(sb, ln, l1)
+	if (l1)
+		sbuf_mem(sb, ln, l1)
 	key = led_input(sb, post, postn, row, cmdo << 2, &postn);
 	if (postn != l1 || cmdo || !ln)
 		lbuf_edit(xb, sb->s, row, row + !cmdo, off, xoff);
