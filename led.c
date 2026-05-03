@@ -421,10 +421,13 @@ static void led_wrap_off2pos_temp_line(char *s, int off, int *seg, int *col)
 static int led_wrap_temp_count(char *s)
 {
 	int cnt = 0;
-	for (char *ln = s; ln; ln = led_wrap_line(ln, 1)) {
+	for (char *ln = s;;) {
+		char *next;
 		cnt += led_wrap_count_temp_line(ln);
-		if (!strchr(ln, '\n'))
+		next = led_wrap_line(ln, 1);
+		if (!next || !*next)
 			break;
+		ln = next;
 	}
 	return MAX(1, cnt);
 }
@@ -444,15 +447,18 @@ static int led_wrap_temp_vrow(char *s, int ps, int off, int *seg, int *col)
 static int led_wrap_temp_vpos(char *s, int vrow, char **ln, int *seg)
 {
 	int c;
-	for (*ln = s;; *ln = led_wrap_line(*ln, 1)) {
+	for (*ln = s;;) {
+		char *next;
 		c = led_wrap_count_temp_line(*ln);
 		if (vrow < c) {
 			*seg = vrow;
 			return 0;
 		}
 		vrow -= c;
-		if (!strchr(*ln, '\n'))
+		next = led_wrap_line(*ln, 1);
+		if (!next || !*next)
 			break;
+		*ln = next;
 	}
 	return -1;
 }
@@ -869,7 +875,7 @@ int led_prompt(sbuf *sb, char *insert, int *kmap, ins_state *is, int ps, int flg
 int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 {
 	int ai_max = 128 * xai;
-	int n, key, ps = 0, crow = xrow, ctop = xtop;
+	int key, ps = 0, crow = xrow, ctop = xtop;
 	char *postref = NULL;
 	ins_state is;
 	while (1) {
@@ -894,17 +900,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 			term_room(1);
 		}
 		crow++;
-		n = ps;
 		ps = sb->s_n;
-		if (ai_max) {	/* updating autoindent */
-			for (; *post == ' ' || *post == '\t'; postn--)
-				++post;
-			int ai_new = n;
-			while (sb->s[ai_new] == ' ' || sb->s[ai_new] == '\t')
-				ai_new++;
-			ai_new = ai_max > ai_new - n ? ai_new - n : ai_max;
-			sbuf_mem(sb, sb->s+n, ai_new)
-		}
 	}
 }
 

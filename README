@@ -934,7 +934,7 @@ EX OPTIONS
      Default value is specified in val=* as part of an argument notation.
      No argument inverts the current value, unless stated otherwise.
 
-     ai[val=1]
+     ai[val=0]
              Indent new lines
 
              This is a max indent length multiplier: val * 128

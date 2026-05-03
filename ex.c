@@ -1,6 +1,6 @@
 int xleft;			/* the first visible column */
 int xvis;			/* startup flags */
-int xai = 1;			/* autoindent option */
+int xai = 0;			/* autoindent option */
 int xic = 1;			/* ignorecase option */
 int xled = 1;			/* use the line editor */
 int xts = 8;			/* number of spaces for tab */
