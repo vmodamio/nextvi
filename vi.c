@@ -1027,13 +1027,14 @@ static int vi_change(int r1, int o1, int r2, int o2, int lnmode)
 	vi_regput(vi_ybuf, rsb.s, lnmode);
 	free(rsb.s);
 	term_pos(v1 - xtop < 0 ? 0 : v1 - xtop, 0);
-	term_room(v1 < xtop ? xtop - vi_vrow(xrow, xoff) : r1 - r2 -
-			(*vi_word && ln && *ln != '\n' && r1 != r2));
+	if (!vi_wrap_enabled())
+		term_room(v1 < xtop ? xtop - vi_vrow(xrow, xoff) : r1 - r2 -
+				(*vi_word && ln && *ln != '\n' && r1 != r2));
 	xrow = r1;
 	if (v1 < xtop)
 		xtop = v1;
 	sbuf_mem(sb, ln, l1)
-	key = led_input(sb, post, postn, v1, 0, &postn);
+	key = led_input(sb, post, postn, r1, 0, &postn);
 	if (postn + l2 != tlen || memcmp(ln + l1, sb->s + l1, tlen - l2 - l1))
 		lbuf_edit(xb, sb->s, r1, r2 + 1, o1, xoff);
 	free(sb->s);
@@ -1182,9 +1183,10 @@ static int vc_insert(int cmd)
 	}
 	vrow = vi_vrow(row, off);
 	term_pos(vrow - xtop, 0);
-	term_room(cmdo);
+	if (!vi_wrap_enabled())
+		term_room(cmdo);
 	sbuf_mem(sb, ln, l1)
-	key = led_input(sb, post, postn, vrow, cmdo << 2, &postn);
+	key = led_input(sb, post, postn, row, cmdo << 2, &postn);
 	if (postn != l1 || cmdo || !ln)
 		lbuf_edit(xb, sb->s, row, row + !cmdo, off, xoff);
 	free(sb->s);

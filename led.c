@@ -181,8 +181,203 @@ static int led_lastword(char *s)
 	return r - s;
 }
 
+static int led_wrap_width(void)
+{
+	if (conf_swwidth <= 0)
+		return xcols;
+	return MAX(1, MIN(conf_swwidth, xcols));
+}
+
+static int led_wrap_enabled(void)
+{
+	return xled && conf_swwidth > 0;
+}
+
+static int led_wrap_breakchar(char *s)
+{
+	return uc_isspace(s) || (uc_len(s) == 1 && strchr(",.;:!?)]}>/-", *s));
+}
+
+static int led_wrap_eol(ren_state *r)
+{
+	int n = r->n;
+	return n > 0 && *r->chrs[n - 1] == '\n' ? n - 1 : n;
+}
+
+static int led_wrap_next(char *s, int start)
+{
+	ren_state *r = ren_position(s);
+	int n = led_wrap_eol(r);
+	int width = led_wrap_width();
+	int base, last = -1, i;
+	if (!led_wrap_enabled() || start >= n)
+		return n;
+	base = r->pos[start];
+	for (i = start; i < n; i++) {
+		if (r->pos[i] + r->wid[i] - base > width)
+			break;
+		if (led_wrap_breakchar(r->chrs[i]))
+			last = i + 1;
+	}
+	if (i >= n)
+		return n;
+	if (last > start)
+		return last;
+	return i > start ? i : start + 1;
+}
+
+static int led_wrap_count(char *s)
+{
+	ren_state *prs, *r;
+	int n, cnt = 1, start = 0, next;
+	if (!s)
+		return 1;
+	prs = rstate;
+	rstate = rstates + 2;
+	rstate->s = NULL;
+	r = ren_position(s);
+	n = led_wrap_eol(r);
+	if (led_wrap_enabled())
+		while ((next = led_wrap_next(s, start)) < n) {
+			cnt++;
+			start = next;
+		}
+	rstate = prs;
+	return cnt;
+}
+
+static int led_wrap_count_row(int row)
+{
+	return led_wrap_count(lbuf_get(xb, row));
+}
+
+static int led_wrap_vrow(int row, int off)
+{
+	int v = 0, start = 0, next, n;
+	char *s;
+	ren_state *prs;
+	for (int i = 0; i < row; i++)
+		v += led_wrap_count_row(i);
+	s = lbuf_get(xb, row);
+	if (!s || !led_wrap_enabled())
+		return v;
+	prs = rstate;
+	rstate = rstates + 2;
+	rstate->s = NULL;
+	n = led_wrap_eol(ren_position(s));
+	off = MIN(MAX(0, off), n);
+	while ((next = led_wrap_next(s, start)) < n && off >= next) {
+		v++;
+		start = next;
+	}
+	rstate = prs;
+	return v;
+}
+
+static int led_wrap_vmax(void)
+{
+	int v = 0;
+	for (int i = 0; i < lbuf_len(xb); i++)
+		v += led_wrap_count_row(i);
+	return MAX(0, v - 1);
+}
+
+static void led_wrap_vpos(int vrow, int *row, int *seg)
+{
+	int c;
+	vrow = MAX(0, vrow);
+	for (*row = 0; *row < lbuf_len(xb); (*row)++) {
+		c = led_wrap_count_row(*row);
+		if (vrow < c) {
+			*seg = vrow;
+			return;
+		}
+		vrow -= c;
+	}
+	*row = MAX(0, lbuf_len(xb) - 1);
+	*seg = 0;
+}
+
+static int led_wrap_seg_start(char *s, int seg)
+{
+	int start = 0, n;
+	if (!s || !led_wrap_enabled())
+		return 0;
+	n = led_wrap_eol(ren_position(s));
+	while (seg-- > 0 && start < n)
+		start = led_wrap_next(s, start);
+	return start;
+}
+
+static int led_wrap_seg_end(char *s, int start)
+{
+	int n;
+	if (!s || !led_wrap_enabled())
+		return ren_position(s)->n;
+	n = led_wrap_eol(ren_position(s));
+	return start >= n ? ren_position(s)->n : led_wrap_next(s, start);
+}
+
+static void led_wrap_off2pos(char *s, int off, int *seg, int *col)
+{
+	ren_state *r = ren_position(s);
+	int n = led_wrap_eol(r);
+	int start = 0, next;
+	*seg = 0;
+	off = MIN(MAX(0, off), n);
+	while ((next = led_wrap_next(s, start)) < n && off >= next) {
+		(*seg)++;
+		start = next;
+	}
+	*col = off < r->n ? r->pos[off] - r->pos[start] : 0;
+}
+
+static void led_wrap_render(char *s, int row, int seg)
+{
+	int start = led_wrap_seg_start(s, seg);
+	int end = led_wrap_seg_end(s, start);
+	ren_state *r = ren_position(s);
+	led_crender(s, row, 0, r->pos[start], r->pos[end])
+}
+
+static void led_wrap_redraw(char *cur, int lrow, int off, int *pctop)
+{
+	int base = led_wrap_vrow(lrow, 0);
+	int oldcnt = led_wrap_count_row(lrow);
+	int newcnt = led_wrap_count(cur);
+	int seg, col, cvrow, vmax, row;
+	led_wrap_off2pos(cur, off, &seg, &col);
+	cvrow = base + seg;
+	if (cvrow < *pctop)
+		*pctop = cvrow;
+	else if (cvrow >= *pctop + xrows)
+		*pctop = cvrow - xrows + 1;
+	for (int r = 0; r < xrows; r++) {
+		int v = *pctop + r;
+		if (v >= base && v < base + newcnt) {
+			rstate = rstates + 2;
+			rstate->s = NULL;
+			led_wrap_render(cur, r, v - base);
+			rstate = rstates;
+			continue;
+		}
+		vmax = led_wrap_vmax();
+		if (v >= base + newcnt)
+			v -= newcnt - oldcnt;
+		if (v > vmax)
+			RS(2, led_crender(lbuf_len(xb) || v ? "~" : "", r, 0, 0, xcols))
+		else {
+			led_wrap_vpos(v, &row, &seg);
+			rstate += row != xrow;
+			led_wrap_render(lbuf_get(xb, row), r, seg);
+			rstate = rstates;
+		}
+	}
+	term_pos(cvrow - *pctop, col);
+}
+
 static void led_printparts(sbuf *sb, int pre, int ps,
-	char *post, int postn, int *poff)
+	char *post, int postn, int *poff, int lrow, int *pctop)
 {
 	if (!xled) {
 		sbufn_null(sb)
@@ -198,6 +393,12 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 	ren_state *r = ren_position(sb->s + ps);
 	off = r->n - postn;
 	*poff = off;
+	if (led_wrap_enabled() && lrow >= 0) {
+		rstate -= 2;
+		led_wrap_redraw(r->s, lrow, off, pctop);
+		sbufn_cut(sb, psn)
+		return;
+	}
 	pos = ren_cursor(r->s, r->pos[MAX(0, off-1)]);
 	if (off > 0) {
 		int two = off > 1 && psn != pre;
@@ -258,10 +459,10 @@ char *led_read(int *kmap, int c)
 #define led_info(buf) \
 { \
 	sbuf_str(sb, buf) \
-	led_printparts(sb, pre, ps, *post, postn, poff); \
+	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop); \
 	sbuf_cut(sb, len) \
 	c = term_read(TK_CTL('l')); \
-	led_printparts(sb, pre, ps, *post, postn, poff); \
+	led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop); \
 	goto noredraw; \
 } \
 
@@ -313,7 +514,7 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 	char *cs;
 	int len, c, i;
 	do {
-		led_printparts(sb, pre, ps, *post, postn, poff);
+		led_printparts(sb, pre, ps, *post, postn, poff, crow, &ctop);
 		len = sb->s_n;
 		c = term_read(TK_CTL('l'));
 		noredraw:
@@ -567,9 +768,11 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 			return key;
 		}
 		sbuf_chr(sb, key)
-		led_printparts(sb, -1, ps, "", 0, &xoff);
-		term_chr('\n');
-		term_room(1);
+		led_printparts(sb, -1, ps, "", 0, &xoff, crow, &ctop);
+		if (!led_wrap_enabled()) {
+			term_chr('\n');
+			term_room(1);
+		}
 		crow++;
 		n = ps;
 		ps = sb->s_n;
