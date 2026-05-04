@@ -214,6 +214,66 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 	rstate -= 2;
 }
 
+#define LED_HARDWRAP	-2
+
+static int led_hardwrap_break(char *ln, int *end, int *next)
+{
+	ren_state *r = ren_position(ln);
+	int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
+	int cut = 0, br = -1;
+	if (conf_hwwidth <= 0 || !n || r->pos[n] < conf_hwwidth)
+		return 0;
+	while (cut < n && r->pos[cut] + r->wid[cut] < conf_hwwidth)
+		cut++;
+	for (int i = cut; i > 0; i--) {
+		char *ch = r->chrs[i - 1];
+		if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
+					strchr(",.;:!?)]}>/-", *ch))) {
+			br = i;
+			break;
+		}
+	}
+	if (br > 0) {
+		*end = br;
+		*next = br;
+		if (uc_isspace(r->chrs[br - 1])) {
+			*end = br - 1;
+			while (*next < n && uc_isspace(r->chrs[*next]))
+				(*next)++;
+		}
+	} else {
+		*end = cut;
+		*next = cut;
+	}
+	if (*end <= 0)
+		*end = cut > 0 ? cut : 1;
+	if (*next <= *end)
+		*next = *end;
+	return 1;
+}
+
+static int led_hardwrap_insert(sbuf *sb, int ps)
+{
+	int end, next;
+	char *tail, *ln;
+	sbuf_null(sb)
+	ln = sb->s + ps;
+	rstate += 2;
+	rstate->s = NULL;
+	if (!led_hardwrap_break(ln, &end, &next)) {
+		rstate -= 2;
+		return 0;
+	}
+	ren_state *r = ren_position(ln);
+	tail = uc_dup(r->chrs[next]);
+	sbuf_cut(sb, r->chrs[end] - sb->s)
+	sbuf_chr(sb, '\n')
+	sbuf_str(sb, tail)
+	free(tail);
+	rstate -= 2;
+	return 1;
+}
+
 /* read a character from the terminal */
 char *led_read(int *kmap, int c)
 {
@@ -514,6 +574,8 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 			if ((cs = led_read(kmap, c)))
 				sbuf_str(sb, cs)
 		}
+		if (ai_max >= 0 && led_hardwrap_insert(sb, ps))
+			return LED_HARDWRAP;
 		is->sug = NULL;
 		is->_sug = NULL;
 		if (ai_max >= 0 && xpac)
@@ -555,6 +617,22 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 		ins_init(is)
 		key = led_line(sb, ps, sb->s_n, &post, postn, &postref,
 			ai_max, &xoff, &xkmap, &is, row, crow, ctop, flg);
+		if (key == LED_HARDWRAP) {
+			char *nl = strrchr(sb->s, '\n');
+			int nllen;
+			if (!nl)
+				continue;
+			nllen = nl - sb->s;
+			sbuf_smake(tmp, nllen + 1)
+			sbuf_mem(tmp, sb->s, nllen)
+			led_printparts(tmp, -1, ps, "", 0, &xoff);
+			free(tmp->s);
+			term_chr('\n');
+			term_room(1);
+			crow++;
+			ps = nl + 1 - sb->s;
+			continue;
+		}
 		if (key != '\n') {
 			*pren = sb->s_n;
 			if (!xled) {
