@@ -41,6 +41,9 @@ static int vi_cndir = 1;		/* ^n direction */
 static int vi_status;			/* permanent status bar */
 static int vi_tsm;			/* type of the status message */
 static int vi_nlmode;			/* new line mode for vi regions */
+static int vi_visual;			/* visual mode */
+static int vi_vrow;			/* visual selection anchor row */
+static int vi_voff;			/* visual selection anchor offset */
 
 void *emalloc(size_t size)
 {
@@ -154,7 +157,38 @@ static void vi_drawrow(int row)
 	rstate += row != xrow;
 	if (!s)
 		s = row ? ch : ch+1;
+	led_select(NULL, 0, -1);
+	if (vi_visual && s != ch && s != ch+1) {
+		int ar = vi_vrow, ao = vi_voff, cr = xrow, co = xoff;
+		if (ar > cr || (ar == cr && ao > co)) {
+			swap(&ar, &cr);
+			swap(&ao, &co);
+		}
+		if (row >= ar && row <= cr) {
+			int beg, end;
+			if (ar == cr) {
+				beg = ao;
+				end = co;
+			} else if (row == ar) {
+				beg = ao;
+				end = lbuf_eol(xb, row, 1);
+			} else if (row == cr) {
+				beg = 0;
+				end = co;
+			} else {
+				beg = 0;
+				end = lbuf_eol(xb, row, 1);
+			}
+			ren_state *r = ren_position(s);
+			if (r->n) {
+				beg = MAX(0, MIN(beg, r->n - 1));
+				end = MAX(0, MIN(end, r->n - 1));
+				led_select(s, beg, end);
+			}
+		}
+	}
 	led_crender(s, row - xtop, 0, xleft, xleft + xcols)
+	led_select(NULL, 0, -1);
 	rstate = rstates;
 }
 
@@ -1069,6 +1103,36 @@ static int vc_motion(int cmd)
 	return 0;
 }
 
+static int vc_visual_op(int cmd)
+{
+	int r1 = vi_vrow, o1 = vi_voff;
+	int r2 = xrow, o2 = xoff;
+	if (r1 > r2 || (r1 == r2 && o1 > o2)) {
+		swap(&r1, &r2);
+		swap(&o1, &o2);
+	}
+	if (o2 < lbuf_eol(xb, r2, 2))
+		o2++;
+	ren_state *r = (ren_state*)lbuf_get(xb, r1);
+	r = r ? ren_position((char*)r) : NULL;
+	o1 = r ? MAX(0, MIN(o1, r->n)) : 0;
+	vi_visual = 0;
+	vi_mod |= 1;
+	int mv = lbuf_len(xb), key = 0;
+	if (cmd == 'y')
+		vi_yank(r1, o1, r2, o2, 0);
+	else if (cmd == 'd')
+		vi_delete(r1, o1, r2, o2, 0);
+	else if (cmd == 'c')
+		key = vi_change(r1, o1, r2, o2, 0);
+	else if (cmd == '~' || cmd == 'u' || cmd == 'U')
+		vi_case(r1, o1, r2, o2, 0, cmd);
+	else if (cmd == '>' || cmd == '<')
+		vi_shift(r1, r2, cmd == '>' ? +1 : -1, 1);
+	vi_mod |= r1 != r2 || mv != lbuf_len(xb) ? 1 : 2;
+	return key;
+}
+
 static int vc_insert(int cmd)
 {
 	char *post, *ln = lbuf_get(xb, xrow);
@@ -1289,6 +1353,8 @@ void vi(int init)
 				lbuf_mark(xb, '`', xrow, ooff);
 			xrow = nrow;
 			xoff = noff;
+			if (vi_visual)
+				vi_mod |= 1;
 		} else if (mv == 0) {
 			char *cmd;
 			term_dec()
@@ -1365,6 +1431,10 @@ void vi(int init)
 				vi_mod |= 1;
 				break;
 			case 'u':
+				if (vi_visual) {
+					vc_visual_op('u');
+					break;
+				}
 				undo:
 				if (vi_arg >= 0 && !lbuf_undo(xb, &xrow, &xoff)) {
 					vi_mod |= 1;
@@ -1381,6 +1451,10 @@ void vi(int init)
 					goto redo;
 				} else if (!vi_arg)
 					vi_drawmsg_mpt("redo failed")
+				break;
+			case 'U':
+				if (vi_visual)
+					vc_visual_op('U');
 				break;
 			case TK_CTL('g'):
 				vi_tsm = 0;
@@ -1487,7 +1561,14 @@ void vi(int init)
 				}
 				break;
 			case 'V':
-				vi_hidch = !vi_hidch;
+				if (vi_visual) {
+					vi_hidch = !vi_hidch;
+					vi_mod |= 1;
+					break;
+				}
+				vi_visual = 'V';
+				vi_vrow = xrow;
+				vi_voff = xoff;
 				vi_mod |= 1;
 				break;
 			case TK_CTL('v'):
@@ -1518,6 +1599,12 @@ void vi(int init)
 				break;
 			case 'c':
 			case 'd':
+				if (vi_visual) {
+					k = vc_visual_op(c);
+					if (c == 'c')
+						goto ins;
+					break;
+				}
 				k = term_read(0);
 				if (k == 'i') {
 					k = term_read(0);
@@ -1562,6 +1649,10 @@ void vi(int init)
 			case '>':
 			case '<':
 			case TK_CTL('w'):
+				if (vi_visual && c != TK_CTL('w')) {
+					vc_visual_op(c);
+					break;
+				}
 				k = vc_motion(c);
 				if (c == 'c')
 					goto ins;
@@ -1680,6 +1771,10 @@ void vi(int init)
 				term_push("yy", 2);
 				goto motion;
 			case '~':
+				if (vi_visual) {
+					vc_visual_op('~');
+					break;
+				}
 				term_push("g~ ", 3);
 				goto motion;
 			case 'C':
@@ -1740,9 +1835,18 @@ void vi(int init)
 				vc_status(0);
 				vi_mod |= 1;
 				break;
+			case TK_ESC:
+				if (vi_visual) {
+					vi_visual = 0;
+					vi_mod |= 1;
+					break;
+				}
+				continue;
 			default:
 				continue;
 			}
+			if (vi_visual)
+				vi_mod |= 1;
 			if (strchr("!<>AIJKOPRacdiopry", c)) {
 				rep:
 				memcpy(rep_cmd, icmd, icmd_pos);

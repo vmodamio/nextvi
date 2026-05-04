@@ -1,5 +1,7 @@
 static sbuf *suggestsb;
 static sbuf *acsb;
+static char *led_sels;
+static int led_selbeg, led_selend;
 
 int dstrlen(const char *s, char delim)
 {
@@ -93,6 +95,13 @@ int led_pos(char *s, int pos)
 	return pos - xleft;
 }
 
+void led_select(char *s, int beg, int end)
+{
+	led_sels = s;
+	led_selbeg = beg;
+	led_selend = end;
+}
+
 #define print_ch1(out) sbuf_mem(out, chrs[o], l)
 #define print_ch2(out) sbuf_mem(out, *chrs[o] == ' ' ? "_" : chrs[o], l)
 
@@ -108,6 +117,14 @@ for (i = 0; i < cterm;) { \
 	o = off[i]; \
 	if (o >= 0) { \
 		for (l = i; off[i] == o; i++); \
+		int sel = s0 == led_sels && o >= led_selbeg && o <= led_selend; \
+		if (sel && !rev) { \
+			sbuf_str(out, "\033[7m") \
+			rev = 1; \
+		} else if (!sel && rev) { \
+			sbuf_str(out, "\033[27m") \
+			rev = 0; \
+		} \
 		char *s = ren_translate(chrs[o], s0); \
 		if (s) \
 			sbuf_str(out, s) \
@@ -118,13 +135,20 @@ for (i = 0; i < cterm;) { \
 			hid_ch##n(out) \
 		} \
 	} else { \
+		if (rev) { \
+			sbuf_str(out, "\033[27m") \
+			rev = 0; \
+		} \
 		if (cbeg) { \
 			sbuf_chr(out, ' ') \
 			i++; \
 		} else \
 			break; \
 	} \
-} } \
+} \
+if (rev) \
+	sbuf_str(out, "\033[27m") \
+} \
 
 /* render a line */
 void led_render(char *s0, int cbeg, int cend)
@@ -132,7 +156,7 @@ void led_render(char *s0, int cbeg, int cend)
 	if (!xled)
 		return;
 	ren_state *r = ren_position(s0);
-	int c, l, i, o, n = r->n, cterm = cend - cbeg;
+	int c, l, i, o, n = r->n, cterm = cend - cbeg, rev = 0;
 	char **chrs = r->chrs;	/* chrs[i]: the i-th character in s0 */
 	int off[cterm+1];	/* off[i]: the character at screen position i */
 	off[cterm] = -1;
@@ -151,10 +175,11 @@ void led_render(char *s0, int cbeg, int cend)
 				off[i--] = -1;
 	}
 	/* generate term output */
-	if (vi_hidch)
+	if (vi_hidch) {
 		led_out(term_sbuf, 2)
-	else
+	} else {
 		led_out(term_sbuf, 1)
+	}
 	if (r->holelen) {
 		memcpy(chrs[n], r->nullhole, r->holelen);
 		r->holelen = 0;

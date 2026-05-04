@@ -96,7 +96,13 @@ VI NORMAL
      [#]<^U>       Scroll up half a screen size. If [#], set scroll to # lines
      <^B>          Scroll up full screen size
      <^F>          Scroll down full screen size
-     V             Toggle show hidden characters:<Space Tab Newline>
+     V             Enter visual mode. In visual mode, V toggles show hidden
+                   characters:<Space Tab Newline>
+     <ESC>         Exit visual mode
+     visual y      Yank selection
+     visual d      Delete selection
+     visual c      Change selection
+     visual ~uU    Toggle/lower/upper case selection
      <^C>          Toggle show line motion numbers for <l h e b E B w W>
      {1-5}<^C>     Select line motion number mode 1-5
      <^V>          Loop through line motion number modes
