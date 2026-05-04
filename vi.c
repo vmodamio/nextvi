@@ -310,13 +310,14 @@ static void vi_hardwrap_emit(sbuf *out, char *txt, int cursor,
 		sbuf_mem(out, txt, r->chrs[end] - txt)
 		sbuf_chr(out, '\n')
 		len = end;
-		if (*nrow < 0 && cursor <= chars + len) {
+		if (*nrow < 0 && (cursor < chars + len ||
+					(!txt[next] && cursor <= chars + len))) {
 			*nrow = row + seg;
-			*noff = (first ? 0 : 1) + cursor - chars;
+			*noff = (first ? 0 : 1) + MAX(0, cursor - chars);
 		}
 		if (!txt[next])
 			break;
-		chars += len;
+		chars += next;
 		txt = r->chrs[next];
 		first = 0;
 		seg++;

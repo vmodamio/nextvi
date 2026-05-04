@@ -1,0 +1,242 @@
+Detailed Codex change summary from the beginning of this chat
+Date: 2026-05-04
+
+1. Removed filetype-related functionality
+
+- Removed editor functionality related to filetypes.
+- Removed filetype-driven syntax highlighting.
+- Removed filetype-related terminal attributes.
+- Cleaned up the `:ft` option after it started reporting erroneous or stale filetype information.
+
+2. Created the first change summary
+
+- Wrote a first summary of the early filetype-related removals to:
+  `changes_first.txt`
+
+3. Removed line number display
+
+- Removed the feature that displayed line numbers alongside the text.
+- Cleaned up code paths that supported or rendered those side line numbers.
+
+4. Removed bidirectional writing support
+
+- Removed bidirectional writing support.
+- Simplified text handling to assume left-to-right writing only.
+- Removed or bypassed logic that existed only for right-to-left or bidirectional rendering and cursor behavior.
+
+5. Created the second change summary
+
+- Wrote a second summary covering the changes since `changes_first.txt` to:
+  `changes_second.txt`
+
+6. Removed shell and external-command execution features
+
+- Removed features related to executing external commands.
+- Removed shell-related behavior and integrations.
+- Cleaned up editor functionality that depended on shell command execution.
+
+7. Created the third change summary
+
+- Wrote a third summary covering the shell/external-command removal work to:
+  `changes_third.txt`
+
+8. Saved a copy/summary of the chat
+
+- Created:
+  `changes_codex.txt`
+- This file was intended to preserve the conversation/change history up to that point.
+
+9. Committed the completed steps
+
+- The earlier completed change groups were committed into the git repository as separate commits.
+- Later wrapping-related work was also committed step by step.
+
+10. Implemented the first soft line wrapping attempt
+
+- Added soft line wrapping enabled by default.
+- Made the wrap width compile-time configurable in `conf.c`.
+- The initial configuration variable was `conf_swwidth`.
+- Implemented wrapping at typical separator characters such as spaces and punctuation.
+- Changed cursor navigation so wrapped visual segments behaved like separate lines.
+
+11. Fixed several soft wrapping bugs
+
+- Fixed wrapping not applying automatically during insert mode.
+- Fixed weird redraw behavior after returning to insert mode.
+- Fixed cursor positioning problems caused by wrapped visual rows.
+- Fixed a regression where the cursor stopped moving, including in ex mode.
+- Fixed a segmentation fault caused by pressing Enter in insert mode.
+- Fixed blank lines appearing above after pressing Enter.
+- Fixed interaction with `~` end-of-file screen rows.
+- Fixed behavior where creating a new real line did not remove the `~` indicator.
+- Changed wrap behavior so a separator space at the wrap boundary was hidden from the start of the next visual line.
+- Preserved spaces intentionally typed at the beginning of a real physical line.
+- Fixed cursor behavior at the end of wrapped lines so the cursor could not be displayed past the configured wrap width.
+- Addressed problems involving autoindent-like behavior, inserting text into previous lines, and inconsistent empty-file rendering.
+
+12. Discussed soft wrapping performance
+
+- Discussed that soft wrapping is more CPU-hungry than the previous no-wrap code because it adds extra render-time computation.
+- Explained that soft wrapping repeatedly maps physical lines to visual rows and must update cursor/screen calculations.
+- Discussed that hard wrapping would generally be lighter in CPU terms because it rewrites the buffer once, then normal line rendering and navigation can continue.
+
+13. Reverted the soft wrapping implementation
+
+- Reverted the whole soft wrapping code.
+- Restored files to the pre-soft-wrap state from commit `1cdfd65`.
+- The reverted files included:
+  `README`
+  `conf.c`
+  `vi.h`
+  `vi.c`
+  `led.c`
+  `ex.c`
+- Removed the soft-wrap configuration variable `conf_swwidth`.
+- Removed the soft-wrap README documentation.
+- Restored the previous rendering and cursor-navigation model.
+
+14. Implemented automatic hard wrapping
+
+- Added compile-time hard wrap configuration:
+  `conf_hwwidth`
+- Default committed value:
+  `80`
+- Left the user's local test value of `40` uncommitted when requested/appropriate.
+- Added `extern const int conf_hwwidth;` in `vi.h`.
+- Added automatic hard wrapping after insert edits.
+- Physical lines are split at separator characters such as spaces and punctuation.
+- The earlier manual `gw` and `gq` hard-wrap commands were kept.
+- Updated `README` to mention automatic hard wrapping via `conf_hwwidth`.
+- Fixed an old empty-buffer insert edge case by avoiding a null-prefix `sbuf_mem`.
+- Built successfully with:
+  `./cbuild.sh build`
+- Smoke-tested insertion and verified saved physical lines stayed under the configured width.
+- Committed as:
+  `ed344b4 Replace soft wrapping with hard wrapping`
+
+15. Made hard wrapping happen during insert mode
+
+- The first hard-wrap implementation only wrapped after leaving insert mode with Escape.
+- This allowed the cursor to visually exceed the configured hard-wrap width while typing.
+- Moved wrapping into the insert editor loop.
+- The live insert buffer now inserts a real newline as soon as the current live text reaches the configured width.
+- Continuation text remains in insert mode, so typing can continue on the next physical line.
+- Fixed a bug where a redraw path temporarily shortened the real insert buffer and lost continuation text.
+- Verified with `conf_hwwidth = 40` that text split live while insert mode was still active.
+- Committed as:
+  `44450bc Wrap hard lines during insert`
+
+16. Counted the existing suffix when inserting in the middle of a line
+
+- Fixed a case where inserting into a previous or middle line could still let that full displayed line exceed the wrapping limit.
+- The live wrapper had only counted the typed prefix, not the existing suffix after the cursor.
+- Changed the live check to measure the reconstructed full line:
+  typed prefix + existing suffix.
+- When the reconstructed line exceeds the width, wrapping now happens immediately.
+- Verified by inserting text into the middle of an existing first line and checking saved line lengths.
+- Committed as:
+  `7d9e6d8 Count suffix while hard wrapping insert`
+
+17. Added forced-linebreak markers using U+200B
+
+- Implemented the requested forced-linebreak mechanism.
+- Chose U+200B zero-width space as the marker.
+- Added shared macros:
+  `HWBRK`
+  `HWBRK_LEN`
+- Added U+200B to the placeholder table in `conf.c` with zero display width and empty display text.
+- Live hard wrapping now prefixes automatically generated continuation lines with U+200B.
+- The marker is stored in the file but rendered invisibly and without occupying a column.
+
+18. Implemented paragraph reflow for forced-linebreak continuations
+
+- Added detection for forced continuation lines:
+  a line starting with U+200B is considered generated by the wrapping mechanism.
+- When editing a line in a wrapped paragraph, the editor now:
+  - finds the paragraph head,
+  - absorbs following forced continuation lines,
+  - removes the forced-linebreak markers,
+  - joins the paragraph text logically,
+  - rewraps it according to `conf_hwwidth`,
+  - writes fresh U+200B markers on generated continuation lines,
+  - stops at the next normal user-created line break.
+- This means inserting text into a previous wrapped line reflows all following forced continuation lines until the next real line break.
+- Fixed a crash in the live insert handler where it searched for the last newline in the temporary buffer instead of the newly inserted wrap newline.
+- Verified that:
+  - wrapped continuation lines are saved with U+200B bytes `e2 80 8b`,
+  - U+200B is invisible in the editor,
+  - editing the first line of a marked paragraph reflows the following marked lines,
+  - the reflow stops at the next unmarked line.
+- Committed as:
+  `56eac55 Reflow forced hard wrap continuations`
+
+19. Current repository state after the latest wrapping work
+
+- Recent wrapping commits:
+  `56eac55 Reflow forced hard wrap continuations`
+  `7d9e6d8 Count suffix while hard wrapping insert`
+  `44450bc Wrap hard lines during insert`
+  `ed344b4 Replace soft wrapping with hard wrapping`
+- The build passed after the final forced-linebreak implementation.
+- The user's local `conf.c` test change remains uncommitted:
+  `conf_hwwidth = 40`
+- The committed default remains:
+  `conf_hwwidth = 80`
+
+20. Files most recently involved in the wrapping implementation
+
+- `conf.c`
+  Added `conf_hwwidth` and the U+200B zero-width placeholder.
+
+- `vi.h`
+  Added `conf_hwwidth` declaration and forced-linebreak marker macros.
+
+- `vi.c`
+  Added hard-wrap reflow logic, forced-line detection, paragraph joining, and re-emission of marked continuation lines.
+
+- `led.c`
+  Added live insert-mode hard wrapping and insertion of U+200B markers on generated continuation lines.
+
+- `README`
+  Documented automatic hard wrapping through `conf_hwwidth`.
+
+21. Verification performed during the wrapping work
+
+- Built repeatedly with:
+  `./cbuild.sh build`
+- Ran interactive smoke tests with `./vi` against temporary files in `/tmp`.
+- Checked saved physical line lengths with `awk`.
+- Checked forced-linebreak bytes with `xxd`.
+- Confirmed generated continuation lines contain U+200B and render invisibly.
+
+22. Fixed cursor position after leaving insert mode on live hard-wrapped lines
+
+User request:
+
+> continuing with the implementation of the hard wrapping, I realized that now, once editing a long line, that breaks over multiple lines, the cursor returns to the first one once hitting escape, instead of staying in the last position
+
+Assistant work:
+
+- Traced the bug through the live insert wrapping path in `led.c` and the final paragraph reflow/remapping path in `vi.c`.
+- Identified that the final reflow cursor remapper treated a cursor exactly at a wrap boundary as belonging to the previous generated segment.
+- Changed `vi_hardwrap_emit()` so boundary cursor positions belong to the following generated continuation line when one exists.
+- Changed the reflow character counter to advance by `next`, not `end`, so skipped separator characters are counted consistently.
+- Identified a second coordinate mismatch: live insert mode tracks the cursor after the invisible `HWBRK` marker, while buffer offsets include that marker.
+- Changed `led_input()` so exiting insert mode from a generated continuation line adjusts `xoff` for the invisible marker before final buffer replacement/reflow.
+- Verified the build with:
+  `./cbuild.sh build`
+
+23. Commit request for the cursor fix and chat log
+
+User request:
+
+> can you commit changes to the git repositiry, and update the file "codex-2026-05-04.txt" with the contents of this chat?
+
+Assistant response:
+
+- Found that the repository contains `codex_2026-05-04.txt`, not `codex-2026-05-04.txt`.
+- Updated `codex_2026-05-04.txt` with the visible contents and summary of this chat.
+- Planned to commit only the cursor-fix files and this log update, leaving unrelated local files alone:
+  `conf.c`
+  `test`
+  `test2`

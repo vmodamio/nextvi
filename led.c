@@ -640,6 +640,9 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 				sbufn_str(sb, post)
 			} else
 				sb->s[*pren] = *post;
+			if (ps >= HWBRK_LEN &&
+					!memcmp(sb->s + ps - HWBRK_LEN, HWBRK, HWBRK_LEN))
+				xoff++;
 			free(postref);
 			xrow = crow;
 			return key;
