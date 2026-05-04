@@ -4,7 +4,7 @@
 const int conf_mode = 0600;
 
 /* automatic hard wrap column; set to 0 to disable */
-const int conf_hwwidth = 80;
+const int conf_hwwidth = 40;
 
 struct placeholder _ph[3] = {
 	{{0x0,0x1f}, "^", 1, 1},
