@@ -6,8 +6,9 @@ const int conf_mode = 0600;
 /* automatic hard wrap column; set to 0 to disable */
 const int conf_hwwidth = 80;
 
-struct placeholder _ph[2] = {
+struct placeholder _ph[3] = {
 	{{0x0,0x1f}, "^", 1, 1},
+	{{0x200b,0x200b}, "", 0, 3},
 	{{0x200c,0x200d}, "-", 1, 3},
 };
 struct placeholder *ph = _ph;

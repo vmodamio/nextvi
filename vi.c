@@ -281,27 +281,93 @@ static int vi_hardwrap_break(char *ln, int width, int *end, int *next)
 	return 1;
 }
 
-static int vi_hardwrap_row(int row)
+static int vi_forced_line(char *ln)
 {
-	char *ln = lbuf_get(xb, row);
-	int end, next, off = xoff, cur = row == xrow;
-	if (!ln || !vi_hardwrap_break(ln, conf_hwwidth, &end, &next))
-		return 0;
-	ren_state *r = ren_position(ln);
-	sbuf_smake(sb, lbuf_s(ln)->len + 1)
-	sbuf_mem(sb, ln, r->chrs[end] - ln)
-	sbuf_chr(sb, '\n')
-	sbufn_str(sb, r->chrs[next])
-	if (cur) {
-		if (off > next) {
-			xrow++;
-			xoff = off - next;
-		} else if (off > end) {
-			xoff = end;
+	return ln && !memcmp(ln, HWBRK, HWBRK_LEN);
+}
+
+static int vi_line_nchars(char *ln, int body)
+{
+	ren_state *r = ren_position(ln + body);
+	int n = r->n;
+	return n && *r->chrs[n - 1] == '\n' ? n - 1 : n;
+}
+
+static void vi_hardwrap_emit(sbuf *out, char *txt, int cursor,
+	int row, int *nrow, int *noff)
+{
+	int first = 1, chars = 0, seg = 0;
+	while (*txt) {
+		int end, next, len;
+		ren_state *r = ren_position(txt);
+		if (!vi_hardwrap_break(txt, conf_hwwidth, &end, &next)) {
+			end = next = r->n;
+			if (end && *r->chrs[end - 1] == '\n')
+				end = next = end - 1;
 		}
+		if (!first)
+			sbuf_str(out, HWBRK)
+		sbuf_mem(out, txt, r->chrs[end] - txt)
+		sbuf_chr(out, '\n')
+		len = end;
+		if (*nrow < 0 && cursor <= chars + len) {
+			*nrow = row + seg;
+			*noff = (first ? 0 : 1) + cursor - chars;
+		}
+		if (!txt[next])
+			break;
+		chars += len;
+		txt = r->chrs[next];
+		first = 0;
+		seg++;
 	}
-	lbuf_edit(xb, sb->s, row, row + 1, 0, 0);
-	free(sb->s);
+	if (*nrow < 0) {
+		*nrow = row + seg;
+		*noff = (first ? 0 : 1) + MAX(0, cursor - chars);
+	}
+	sbuf_null(out)
+}
+
+static int vi_hardwrap_reflow(int row)
+{
+	int beg = row, end, cur = 0, cursor = 0, nrow = -1, noff = 0;
+	char *ln;
+	if (conf_hwwidth <= 0 || !lbuf_get(xb, row))
+		return 0;
+	while (beg > 0 && vi_forced_line(lbuf_get(xb, beg)))
+		beg--;
+	for (end = beg + 1; end < lbuf_len(xb) &&
+			vi_forced_line(lbuf_get(xb, end)); end++);
+	ln = lbuf_get(xb, beg);
+	if (end == beg + 1 && vi_off2col(xb, beg, lbuf_eol(xb, beg, 1)) <
+			conf_hwwidth)
+		return 0;
+	sbuf_smake(txt, lbuf_s(ln)->len + 1)
+	for (int i = beg; i < end; i++) {
+		int body = vi_forced_line(lbuf_get(xb, i)) ? HWBRK_LEN : 0;
+		int sep = i > beg && txt->s_n && txt->s[txt->s_n - 1] != ' ';
+		ln = lbuf_get(xb, i);
+		if (i == xrow) {
+			cursor = cur + sep + MAX(0, xoff - !!body);
+			cursor = MIN(cursor, cur + sep + vi_line_nchars(ln, body));
+		}
+		if (sep) {
+			sbuf_chr(txt, ' ')
+			cur++;
+		}
+		ren_state *r = ren_position(ln + body);
+		int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
+		sbuf_mem(txt, ln + body, r->chrs[n] - (ln + body))
+		cur += n;
+	}
+	sbufn_null(txt)
+	sbuf_smake(out, txt->s_n + 8)
+	vi_hardwrap_emit(out, txt->s, cursor, beg, &nrow, &noff);
+	lbuf_edit(xb, out->s, beg, end, 0, noff);
+	xrow = nrow;
+	xoff = noff;
+	free(out->s);
+	free(txt->s);
 	return 1;
 }
 
@@ -310,14 +376,8 @@ static void vi_hardwrap_range(int row, int lines)
 	int end = row + MAX(lines, 1) - 1;
 	if (conf_hwwidth <= 0)
 		return;
-	for (int r = row; r <= end && r < lbuf_len(xb); r++) {
-		while (vi_hardwrap_row(r)) {
-			end++;
-			r++;
-			if (r >= lbuf_len(xb))
-				break;
-		}
-	}
+	for (int r = row; r <= end && r < lbuf_len(xb); r++)
+		vi_hardwrap_reflow(r);
 }
 
 static int vi_linecount(char *s)

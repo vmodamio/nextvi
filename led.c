@@ -266,6 +266,7 @@ static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 	tail = uc_dup(sb->s + ps + next);
 	sbuf_cut(sb, ps + end)
 	sbuf_chr(sb, '\n')
+	sbuf_str(sb, HWBRK)
 	sbuf_str(sb, tail)
 	free(tail);
 	free(tmp->s);
@@ -617,7 +618,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 		key = led_line(sb, ps, sb->s_n, &post, postn, &postref,
 			ai_max, &xoff, &xkmap, &is, row, crow, ctop, flg);
 		if (key == LED_HARDWRAP) {
-			char *nl = strrchr(sb->s, '\n');
+			char *nl = strchr(sb->s + ps, '\n');
 			int nllen;
 			if (!nl)
 				continue;
@@ -629,7 +630,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 			term_chr('\n');
 			term_room(1);
 			crow++;
-			ps = nl + 1 - sb->s;
+			ps = nl + 1 + HWBRK_LEN - sb->s;
 			continue;
 		}
 		if (key != '\n') {

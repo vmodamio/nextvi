@@ -4,6 +4,8 @@
 #define LEN(a)		(int)(sizeof(a) / sizeof((a)[0]))
 #define MIN(a, b)	((a) < (b) ? (a) : (b))
 #define MAX(a, b)	((a) < (b) ? (b) : (a))
+#define HWBRK		"\342\200\213"
+#define HWBRK_LEN	3
 /* for debug; printf() but to file */
 #define p(s, ...)\
 	{FILE *f = fopen("file", "a");\
