@@ -216,15 +216,32 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 
 #define LED_HARDWRAP	-2
 
-static int led_hardwrap_break(char *ln, int *end, int *next)
+static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 {
-	ren_state *r = ren_position(ln);
-	int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
-	int cut = 0, br = -1;
-	if (conf_hwwidth <= 0 || !n || r->pos[n] < conf_hwwidth)
+	int cur, cut = 0, br = -1, end, next, prebytes;
+	char *tail;
+	sbuf_null(sb)
+	prebytes = sb->s_n - ps;
+	sbuf_smake(tmp, prebytes + strlen(post) + 1)
+	sbuf_mem(tmp, sb->s + ps, prebytes)
+	sbufn_str(tmp, post)
+	rstate += 2;
+	rstate->s = NULL;
+	ren_state *r = ren_position(tmp->s);
+	if (conf_hwwidth <= 0 || !r->n || r->pos[r->n] < conf_hwwidth) {
+		free(tmp->s);
+		rstate -= 2;
 		return 0;
-	while (cut < n && r->pos[cut] + r->wid[cut] < conf_hwwidth)
+	}
+	for (cur = 0; cur < r->n && r->chrs[cur] - tmp->s < prebytes; cur++);
+	if (!cur) {
+		free(tmp->s);
+		rstate -= 2;
+		return 0;
+	}
+	while (cut < r->n && r->pos[cut] + r->wid[cut] < conf_hwwidth)
 		cut++;
+	cut = MIN(cut, cur);
 	for (int i = cut; i > 0; i--) {
 		char *ch = r->chrs[i - 1];
 		if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
@@ -234,42 +251,24 @@ static int led_hardwrap_break(char *ln, int *end, int *next)
 		}
 	}
 	if (br > 0) {
-		*end = br;
-		*next = br;
+		end = next = br;
 		if (uc_isspace(r->chrs[br - 1])) {
-			*end = br - 1;
-			while (*next < n && uc_isspace(r->chrs[*next]))
-				(*next)++;
+			end = br - 1;
+			while (next < cur && uc_isspace(r->chrs[next]))
+				next++;
 		}
-	} else {
-		*end = cut;
-		*next = cut;
-	}
-	if (*end <= 0)
-		*end = cut > 0 ? cut : 1;
-	if (*next <= *end)
-		*next = *end;
-	return 1;
-}
-
-static int led_hardwrap_insert(sbuf *sb, int ps)
-{
-	int end, next;
-	char *tail, *ln;
-	sbuf_null(sb)
-	ln = sb->s + ps;
-	rstate += 2;
-	rstate->s = NULL;
-	if (!led_hardwrap_break(ln, &end, &next)) {
-		rstate -= 2;
-		return 0;
-	}
-	ren_state *r = ren_position(ln);
-	tail = uc_dup(r->chrs[next]);
-	sbuf_cut(sb, r->chrs[end] - sb->s)
+	} else
+		end = next = cur;
+	if (end <= 0)
+		end = next = cur;
+	end = r->chrs[end] - tmp->s;
+	next = r->chrs[next] - tmp->s;
+	tail = uc_dup(sb->s + ps + next);
+	sbuf_cut(sb, ps + end)
 	sbuf_chr(sb, '\n')
 	sbuf_str(sb, tail)
 	free(tail);
+	free(tmp->s);
 	rstate -= 2;
 	return 1;
 }
@@ -574,7 +573,7 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 			if ((cs = led_read(kmap, c)))
 				sbuf_str(sb, cs)
 		}
-		if (ai_max >= 0 && led_hardwrap_insert(sb, ps))
+		if (ai_max >= 0 && led_hardwrap_insert(sb, ps, *post))
 			return LED_HARDWRAP;
 		is->sug = NULL;
 		is->_sug = NULL;
