@@ -320,13 +320,6 @@ static int vi_forced_line(char *ln)
 	return ln && !memcmp(ln, HWBRK, HWBRK_LEN);
 }
 
-static int vi_line_nchars(char *ln, int body)
-{
-	ren_state *r = ren_position(ln + body);
-	int n = r->n;
-	return n && *r->chrs[n - 1] == '\n' ? n - 1 : n;
-}
-
 static void vi_hardwrap_emit(sbuf *out, char *txt, int cursor,
 	int row, int *nrow, int *noff)
 {
@@ -366,6 +359,7 @@ static void vi_hardwrap_emit(sbuf *out, char *txt, int cursor,
 static int vi_hardwrap_reflow(int row)
 {
 	int beg = row, end, cur = 0, cursor = 0, nrow = -1, noff = 0;
+	int has_cursor = 0;
 	char *ln;
 	if (conf_hwwidth <= 0 || !lbuf_get(xb, row))
 		return 0;
@@ -380,27 +374,40 @@ static int vi_hardwrap_reflow(int row)
 	sbuf_smake(txt, lbuf_s(ln)->len + 1)
 	for (int i = beg; i < end; i++) {
 		int body = vi_forced_line(lbuf_get(xb, i)) ? HWBRK_LEN : 0;
-		int sep = i > beg && txt->s_n && txt->s[txt->s_n - 1] != ' ';
+		int mark = !!body, skip = 0;
 		ln = lbuf_get(xb, i);
+		ren_state *r = ren_position(ln + body);
+		int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
+		while (body && skip < n && uc_isspace(r->chrs[skip]))
+			skip++;
+		int sep = i > beg && txt->s_n && txt->s[txt->s_n - 1] != ' ' &&
+			skip < n;
 		if (i == xrow) {
-			cursor = cur + sep + MAX(0, xoff - !!body);
-			cursor = MIN(cursor, cur + sep + vi_line_nchars(ln, body));
+			has_cursor = 1;
+			cursor = cur + sep + MAX(0, xoff - mark - skip);
+			cursor = MIN(cursor, cur + sep + n - skip);
 		}
 		if (sep) {
 			sbuf_chr(txt, ' ')
 			cur++;
 		}
-		ren_state *r = ren_position(ln + body);
-		int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
-		sbuf_mem(txt, ln + body, r->chrs[n] - (ln + body))
-		cur += n;
+		sbuf_mem(txt, r->chrs[skip], r->chrs[n] - r->chrs[skip])
+		cur += n - skip;
 	}
 	sbufn_null(txt)
 	sbuf_smake(out, txt->s_n + 8)
 	vi_hardwrap_emit(out, txt->s, cursor, beg, &nrow, &noff);
+	int old_lines = end - beg, new_lines = 0;
+	for (char *s = out->s; *s;)
+		if (*s++ == '\n')
+			new_lines++;
+	new_lines = MAX(new_lines, 1);
 	lbuf_edit(xb, out->s, beg, end, 0, noff);
-	xrow = nrow;
-	xoff = noff;
+	if (has_cursor) {
+		xrow = nrow;
+		xoff = noff;
+	} else if (xrow >= end)
+		xrow += new_lines - old_lines;
 	free(out->s);
 	free(txt->s);
 	return 1;
