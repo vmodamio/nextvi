@@ -161,3 +161,66 @@ Assistant work:
 - Committed C changes according to the standing commit rule.
 - Commit:
   `5941378 Constrain ex mode input width`
+
+9. Kept prompt width from leaking into insert mode
+
+User request:
+
+> ok, now the ex mode scrolls and it is constraint to the input width, but the behavoius of the insert mode is also scrolling! and now the hard wrapping only happens, as in previous iterations, after hitting escape, instead of doing it on the fly
+
+Assistant work:
+
+- Re-tested plain insert mode and after-prompt insert mode with over-width input.
+- Confirmed live hard wrapping still fired in the PTY smoke tests.
+- Hardened `led_input()` so it explicitly clears the temporary prompt viewport width at insert-mode entry.
+- This ensures `led_pcols`, used only for prompt input, cannot affect insert-mode rendering if a prompt exits through an unusual path.
+- Verified with:
+  `./cbuild.sh build`
+- Ran a PTY smoke test:
+  opened and aborted a `:` prompt, entered insert mode, typed a long line, and confirmed live hard wrapping still occurred before Escape.
+- Committed C changes according to the standing commit rule.
+- Commit:
+  `1769973 Keep prompt width out of insert mode`
+
+10. Fixed live hard-wrap unwrapping after Backspace
+
+User request:
+
+> There is a flaw in the wrapping mechanism.  When the line wraps and the current word start in a new line, and then deleting characters with backspace until the word fits back in the previous line, leaves duplicated  characters on the screen
+
+Assistant work:
+
+- Reproduced a generated continuation row created by live hard wrapping.
+- Found there was no symmetric live unwrap path: once `led_hardwrap_insert()` inserted `\n` plus `HWBRK`, Backspace could shorten the continuation but the generated row stayed until final reflow.
+- Added `LED_HARDUNWRAP` and `led_hardwrap_unwrap()` in `led.c`.
+- The unwrap path detects a generated `\nHWBRK` break before the current insert segment, checks whether the previous segment plus current segment fits within `conf_hwwidth`, removes the generated break, optionally restores the separator space, and deletes the old terminal row.
+- Adjusted live insert segment baselines so generated continuation text remains deletable in the same insert session instead of being treated as protected pre-existing line content.
+- Changed live and final hard-wrap width checks so `conf_hwwidth` is the maximum allowed visible width; wrapping now happens only when text exceeds that width.
+- Verified with:
+  `./cbuild.sh build`
+- Ran a PTY smoke test:
+  typed a line until a word moved to a generated continuation row, backspaced until the word fit on the previous row, confirmed the terminal deleted the generated row live, and confirmed the saved buffer was a single 39-column line.
+- Committed C changes according to the standing commit rule.
+- Commit:
+  `9674203 Unwrap live hard wraps on backspace`
+
+11. Added a hidden guard column for hard wrapping
+
+User request:
+
+> perfect! one problem now is that the cursor can reach the column 41, even though inserting a character at that point will effectively wrap the line. If I wanted to constrain the view to 40 characters, could it be wise to implement an extra invisible column at the end, so the cursor can reach that one-column-past the config_hwwidth but become invissible? Also, Would that allow at the same time to add another wanted feature, that wrapped lines never start with a space (that would be accomodated in the extra column)
+
+Assistant work:
+
+- Reintroduced the insert-mode render viewport at `conf_hwwidth`, but changed the scroll trigger so the exact one-past-width cursor position is treated as a hidden guard column instead of causing horizontal scrolling.
+- Added `term_cursor()` and hide/show handling so the cursor disappears only when it sits in the guard column, then is restored when leaving insert/prompt input, returning to normal mode, or shutting down the terminal.
+- Adjusted both live insert hard wrapping and load/final hard wrapping so a space exactly in the guard column is consumed as the wrap separator.
+- Confirmed wrapped continuations no longer start with that boundary space, while saved visible line length remains constrained to `conf_hwwidth`.
+- Verified with:
+  `./cbuild.sh build`
+- Ran PTY smoke tests:
+  typed 40 visible characters followed by a space and `WORD`, confirmed the cursor hide sequence appears at the guard column, saved the file, and confirmed `wc -L` reports 40 and the continuation starts with `WORD`.
+- Ran a load-time reflow smoke test with the same boundary-space case and confirmed saving keeps maximum line length 40 with no leading continuation space.
+- Committed C/header changes according to the standing commit rule.
+- Commit:
+  `5956d5d Add hard wrap guard column`
