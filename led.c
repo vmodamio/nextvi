@@ -2,6 +2,7 @@ static sbuf *suggestsb;
 static sbuf *acsb;
 static char *led_sels;
 static int led_selbeg, led_selend;
+static int led_pcols;
 
 int dstrlen(const char *s, char delim)
 {
@@ -93,6 +94,11 @@ static char *kmap_map(int kmap, int c)
 int led_pos(char *s, int pos)
 {
 	return pos - xleft;
+}
+
+void led_prompt_width(int width)
+{
+	led_pcols = width;
 }
 
 void led_select(char *s, int beg, int end)
@@ -231,9 +237,10 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 			pos = ren_cursor(r->s, r->pos[off-two]);
 		pos += dir < 0 ? -1 : 1;
 	}
-	if (pos >= xleft + xcols || pos < xleft)
-		xleft = pos < xcols ? 0 : pos - xcols / 2;
-	led_crender(r->s, -1, 0, xleft, xleft + xcols);
+	int cols = led_pcols > 0 ? MIN(led_pcols, xcols) : xcols;
+	if (pos >= xleft + cols || pos < xleft)
+		xleft = pos < cols ? 0 : pos - cols / 2;
+	led_crender(r->s, -1, 0, xleft, xleft + cols);
 	term_pos(-1, led_pos(r->s, pos));
 	sbufn_cut(sb, psn)
 	rstate -= 2;

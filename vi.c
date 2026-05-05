@@ -223,7 +223,10 @@ static char *vi_prompt(char *msg, char *insert, int *ret, int *kmap, int *mlen)
 	sbuf_str(sb, msg)
 	*mlen = sb->s_n;
 	term_pos(xrows, 0);
+	if (msg[0] == ':' && !msg[1])
+		led_prompt_width(conf_hwwidth);
 	*ret = led_prompt(sb, insert, kmap, NULL, 0, 1) == '\n';
+	led_prompt_width(0);
 	return sb->s;
 }
 
