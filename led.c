@@ -645,6 +645,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 	int n, key, ps = 0, crow = xrow, ctop = xtop;
 	char *postref = NULL;
 	ins_state is;
+	led_pcols = 0;
 	while (1) {
 		ins_init(is)
 		key = led_line(sb, ps, sb->s_n, &post, postn, &postref,
