@@ -289,9 +289,9 @@ static int vi_hardwrap_break(char *ln, int width, int *end, int *next)
 	ren_state *r = ren_position(ln);
 	int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
 	int cut = 0, br = -1;
-	if (width <= 0 || !n || r->pos[n] < width)
+	if (width <= 0 || !n || r->pos[n] <= width)
 		return 0;
-	while (cut < n && r->pos[cut] + r->wid[cut] < width)
+	while (cut < n && r->pos[cut] + r->wid[cut] <= width)
 		cut++;
 	for (int i = cut; i > 0; i--) {
 		char *ch = r->chrs[i - 1];
@@ -373,7 +373,7 @@ static int vi_hardwrap_reflow(int row)
 	for (end = beg + 1; end < lbuf_len(xb) &&
 			vi_forced_line(lbuf_get(xb, end)); end++);
 	ln = lbuf_get(xb, beg);
-	if (end == beg + 1 && vi_off2col(xb, beg, lbuf_eol(xb, beg, 1)) <
+	if (end == beg + 1 && vi_off2col(xb, beg, lbuf_eol(xb, beg, 1)) <=
 			conf_hwwidth)
 		return 0;
 	sbuf_smake(txt, lbuf_s(ln)->len + 1)

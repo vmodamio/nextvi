@@ -247,10 +247,13 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 }
 
 #define LED_HARDWRAP	-2
+#define LED_HARDUNWRAP	-3
+
+static int led_wrap_ps;
 
 static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 {
-	int cur, cut = 0, br = -1, end, next, prebytes;
+	int cur, n, cut = 0, br = -1, end, next, prebytes;
 	char *tail;
 	sbuf_null(sb)
 	prebytes = sb->s_n - ps;
@@ -260,18 +263,19 @@ static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 	rstate += 2;
 	rstate->s = NULL;
 	ren_state *r = ren_position(tmp->s);
-	if (conf_hwwidth <= 0 || !r->n || r->pos[r->n] < conf_hwwidth) {
+	n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
+	if (conf_hwwidth <= 0 || !n || r->pos[n] <= conf_hwwidth) {
 		free(tmp->s);
 		rstate -= 2;
 		return 0;
 	}
-	for (cur = 0; cur < r->n && r->chrs[cur] - tmp->s < prebytes; cur++);
+	for (cur = 0; cur < n && r->chrs[cur] - tmp->s < prebytes; cur++);
 	if (!cur) {
 		free(tmp->s);
 		rstate -= 2;
 		return 0;
 	}
-	while (cut < r->n && r->pos[cut] + r->wid[cut] < conf_hwwidth)
+	while (cut < n && r->pos[cut] + r->wid[cut] <= conf_hwwidth)
 		cut++;
 	cut = MIN(cut, cur);
 	for (int i = cut; i > 0; i--) {
@@ -286,7 +290,7 @@ static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 		end = next = br;
 		if (uc_isspace(r->chrs[br - 1])) {
 			end = br - 1;
-			while (next < cur && uc_isspace(r->chrs[next]))
+			while (next < n && uc_isspace(r->chrs[next]))
 				next++;
 		}
 	} else
@@ -303,6 +307,43 @@ static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 	free(tail);
 	free(tmp->s);
 	rstate -= 2;
+	return 1;
+}
+
+static int led_hardwrap_unwrap(sbuf *sb, int ps, char *post)
+{
+	int brk, prev, sep, width;
+	char *tail;
+	if (conf_hwwidth <= 0 || ps < HWBRK_LEN + 1)
+		return 0;
+	brk = ps - HWBRK_LEN - 1;
+	if (sb->s[brk] != '\n' || memcmp(sb->s + brk + 1, HWBRK, HWBRK_LEN))
+		return 0;
+	for (prev = brk; prev > 0 && sb->s[prev - 1] != '\n'; prev--);
+	sep = brk > prev && sb->s[brk - 1] != ' ' && (ps < sb->s_n || *post);
+	sbuf_smake(tmp, sb->s_n - prev + strlen(post) + 2)
+	sbuf_mem(tmp, sb->s + prev, brk - prev)
+	if (sep)
+		sbuf_chr(tmp, ' ')
+	sbuf_mem(tmp, sb->s + ps, sb->s_n - ps)
+	sbufn_str(tmp, post)
+	rstate += 2;
+	rstate->s = NULL;
+	ren_state *r = ren_position(tmp->s);
+	int n = r->n && *r->chrs[r->n - 1] == '\n' ? r->n - 1 : r->n;
+	width = r->pos[n];
+	free(tmp->s);
+	rstate -= 2;
+	if (width > conf_hwwidth)
+		return 0;
+	tail = uc_dup(sb->s + ps);
+	sbuf_cut(sb, brk)
+	if (sep)
+		sbuf_chr(sb, ' ')
+	sbuf_str(sb, tail)
+	sbuf_null(sb)
+	free(tail);
+	led_wrap_ps = prev;
 	return 1;
 }
 
@@ -608,6 +649,8 @@ static int led_line(sbuf *sb, int ps, int pre, char **post, int postn, char **po
 		}
 		if (ai_max >= 0 && led_hardwrap_insert(sb, ps, *post))
 			return LED_HARDWRAP;
+		if (ai_max >= 0 && led_hardwrap_unwrap(sb, ps, *post))
+			return LED_HARDUNWRAP;
 		is->sug = NULL;
 		is->_sug = NULL;
 		if (ai_max >= 0 && xpac)
@@ -642,13 +685,15 @@ int led_prompt(sbuf *sb, char *insert, int *kmap, ins_state *is, int ps, int flg
 int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 {
 	int ai_max = 128 * xai;
-	int n, key, ps = 0, crow = xrow, ctop = xtop;
+	int n, key, ps = 0, pre = -1, crow = xrow, ctop = xtop;
 	char *postref = NULL;
 	ins_state is;
 	led_pcols = 0;
 	while (1) {
+		if (pre < ps)
+			pre = sb->s_n;
 		ins_init(is)
-		key = led_line(sb, ps, sb->s_n, &post, postn, &postref,
+		key = led_line(sb, ps, pre, &post, postn, &postref,
 			ai_max, &xoff, &xkmap, &is, row, crow, ctop, flg);
 		if (key == LED_HARDWRAP) {
 			char *nl = strchr(sb->s + ps, '\n');
@@ -664,6 +709,17 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 			term_room(1);
 			crow++;
 			ps = nl + 1 + HWBRK_LEN - sb->s;
+			pre = ps;
+			continue;
+		}
+		if (key == LED_HARDUNWRAP) {
+			term_pos(crow - ctop, 0);
+			term_room(-1);
+			crow--;
+			ps = led_wrap_ps;
+			pre = ps;
+			term_pos(crow - ctop, 0);
+			led_printparts(sb, -1, ps, post, postn, &xoff);
 			continue;
 		}
 		if (key != '\n') {
@@ -687,6 +743,7 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 		crow++;
 		n = ps;
 		ps = sb->s_n;
+		pre = sb->s_n;
 		if (ai_max) {	/* updating autoindent */
 			for (; *post == ' ' || *post == '\t'; postn--)
 				++post;
