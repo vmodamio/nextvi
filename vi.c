@@ -1931,46 +1931,14 @@ static void setup_signals(void)
 
 int main(int argc, char *argv[])
 {
-	int i, j;
 	setup_signals();
 	temp_open(0, "/hist/");
 	temp_open(1, "/fm/");
 	temp_open(2, "/sc/");
-	for (i = 1; i < argc && argv[i][0] == '-'; i++) {
-		if (argv[i][1] == '-' && !argv[i][2]) {
-			i++;
-			break;
-		}
-		for (j = 1; argv[i][j]; j++) {
-			if (argv[i][j] == 's')
-				xvis |= 1|2;
-			else if (argv[i][j] == 'e')
-				xvis |= 2;
-			else if (argv[i][j] == 'm')
-				xvis |= 4;
-			else if (argv[i][j] == 'a')
-				xvis |= 8;
-			else if (argv[i][j] == 'v')
-				xvis = 0;
-			else {
-				fprintf(stderr, "Unknown option: -%c\n", argv[i][j]);
-				fprintf(stderr, "Nextvi-5.0 Usage: %s [-aemsv] [file ...]\n", argv[0]);
-				return EXIT_FAILURE;
-			}
-		}
-	}
 	ibuf = emalloc(ibuf_sz);
-	if (!(xvis & 1))
-		term_init();
-	if (xvis & 8)
-		term_scrh;
-	ex_init(argv + i, argc - i);
-	if (xvis & 2)
-		ex();
-	else
-		vi(1);
+	term_init();
+	ex_init(argv + 1, argc - 1);
+	vi(1);
 	term_done();
-	if (xvis & 8)
-		term_scrl;
 	return abs(xquit) - 1;
 }
