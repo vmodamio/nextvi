@@ -18,13 +18,6 @@ DESCRIPTION
      and hackable, ensuring its continued relevance and high quality
      for years to come.
 
-OPTIONS
-     -a      Enable alternate terminal screen
-     -e      Enter ex mode on startup
-     -m      Disable initial file read message
-     -s      Enter raw ex mode on startup
-     -v      Unset all options
-
 MANPAGE NOTATION
      <x>     A closure where x represents a character literal
      [x]     A closure where x represents optional argument
