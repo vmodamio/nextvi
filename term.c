@@ -37,6 +37,7 @@ void term_done(void)
 {
 	if (!term_sbuf)
 		return;
+	term_cursor(1);
 	term_commit();
 	sbuf_free(term_sbuf)
 	tcsetattr(0, 0, &termios);
@@ -100,6 +101,11 @@ void term_pos(int r, int c)
 		memcpy(s, "H", 2);
 		term_out(buf+1);
 	}
+}
+
+void term_cursor(int on)
+{
+	term_out(on ? "\33[?25h" : "\33[?25l");
 }
 
 /* read s before reading from the terminal */

@@ -272,6 +272,7 @@ void term_clean(void);
 #define term_scrh	term_write("\033[?1049h", 8)
 void term_chr(int ch);
 void term_pos(int r, int c);
+void term_cursor(int on);
 void term_kill(void);
 void term_room(int n);
 int term_read(int winch);

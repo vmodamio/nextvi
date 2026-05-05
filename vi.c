@@ -228,6 +228,7 @@ static char *vi_prompt(char *msg, char *insert, int *ret, int *kmap, int *mlen)
 		led_prompt_width(conf_hwwidth);
 	*ret = led_prompt(sb, insert, kmap, NULL, 0, 1) == '\n';
 	led_prompt_width(0);
+	term_cursor(1);
 	return sb->s;
 }
 
@@ -293,12 +294,16 @@ static int vi_hardwrap_break(char *ln, int width, int *end, int *next)
 		return 0;
 	while (cut < n && r->pos[cut] + r->wid[cut] <= width)
 		cut++;
-	for (int i = cut; i > 0; i--) {
-		char *ch = r->chrs[i - 1];
-		if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
-					strchr(",.;:!?)]}>/-", *ch))) {
-			br = i;
-			break;
+	if (cut < n && uc_isspace(r->chrs[cut]))
+		br = cut + 1;
+	else {
+		for (int i = cut; i > 0; i--) {
+			char *ch = r->chrs[i - 1];
+			if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
+						strchr(",.;:!?)]}>/-", *ch))) {
+				br = i;
+				break;
+			}
 		}
 	}
 	if (br > 0) {
@@ -1916,6 +1921,7 @@ void vi(int init)
 			if (xmpt > 0)
 				xmpt = 0;
 		}
+		term_cursor(1);
 		term_pos(xrow - xtop, n);
 		term_commit();
 		xb->useq += xseq;

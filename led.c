@@ -238,10 +238,12 @@ static void led_printparts(sbuf *sb, int pre, int ps,
 		pos += dir < 0 ? -1 : 1;
 	}
 	int cols = led_pcols > 0 ? MIN(led_pcols, xcols) : xcols;
-	if (pos >= xleft + cols || pos < xleft)
-		xleft = pos < cols ? 0 : pos - cols / 2;
+	if (pos > xleft + cols || pos < xleft)
+		xleft = pos <= cols ? 0 : pos - cols / 2;
+	int guard = led_pcols > 0 && pos == xleft + cols;
 	led_crender(r->s, -1, 0, xleft, xleft + cols);
-	term_pos(-1, led_pos(r->s, pos));
+	term_pos(-1, led_pos(r->s, guard ? pos - 1 : pos));
+	term_cursor(!guard);
 	sbufn_cut(sb, psn)
 	rstate -= 2;
 }
@@ -278,12 +280,16 @@ static int led_hardwrap_insert(sbuf *sb, int ps, char *post)
 	while (cut < n && r->pos[cut] + r->wid[cut] <= conf_hwwidth)
 		cut++;
 	cut = MIN(cut, cur);
-	for (int i = cut; i > 0; i--) {
-		char *ch = r->chrs[i - 1];
-		if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
-					strchr(",.;:!?)]}>/-", *ch))) {
-			br = i;
-			break;
+	if (cut < n && uc_isspace(r->chrs[cut]))
+		br = cut + 1;
+	else {
+		for (int i = cut; i > 0; i--) {
+			char *ch = r->chrs[i - 1];
+			if (uc_isspace(ch) || ((unsigned char)*ch < 0x7f &&
+						strchr(",.;:!?)]}>/-", *ch))) {
+				br = i;
+				break;
+			}
 		}
 	}
 	if (br > 0) {
@@ -688,7 +694,8 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 	int n, key, ps = 0, pre = -1, crow = xrow, ctop = xtop;
 	char *postref = NULL;
 	ins_state is;
-	led_pcols = 0;
+	led_pcols = conf_hwwidth > 0 ? conf_hwwidth : 0;
+	term_cursor(1);
 	while (1) {
 		if (pre < ps)
 			pre = sb->s_n;
@@ -734,6 +741,8 @@ int led_input(sbuf *sb, char *post, int postn, int row, int flg, int *pren)
 				xoff++;
 			free(postref);
 			xrow = crow;
+			led_pcols = 0;
+			term_cursor(1);
 			return key;
 		}
 		sbuf_chr(sb, key)
