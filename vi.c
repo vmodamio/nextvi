@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include "vi.h"
 #include "conf.c"
+static void vi_hardwrap_all(void);
 #include "ex.c"
 #include "lbuf.c"
 #include "led.c"
@@ -419,6 +420,14 @@ static void vi_hardwrap_range(int row, int lines)
 	if (conf_hwwidth <= 0)
 		return;
 	for (int r = row; r <= end && r < lbuf_len(xb); r++)
+		vi_hardwrap_reflow(r);
+}
+
+static void vi_hardwrap_all(void)
+{
+	if (conf_hwwidth <= 0)
+		return;
+	for (int r = 0; r < lbuf_len(xb); r++)
 		vi_hardwrap_reflow(r);
 }
 

@@ -140,7 +140,8 @@ VI NORMAL
      2ga           Disable permanent character info row
      [#]gw         Hard word wrap a line to # col limit. Default: 80
      [#]gq         Hard word wrap a buffer to # col limit. Default: 80
-                   Insert edits hard-wrap automatically to conf_hwwidth.
+                   Documents and insert edits hard-wrap automatically to
+                   conf_hwwidth.
      [#]g~{arg}    Switch character case for arg region # times
      [#]gu{arg}    Switch arg region to lowercase # times
      [#]gU{arg}    Switch arg region to uppercase # times

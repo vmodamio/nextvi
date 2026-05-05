@@ -316,12 +316,17 @@ static int ex_read(sbuf *sb, char *msg, ins_state *is, int ps, int flg)
 	return key;
 }
 
-#define readfile(errchk) \
-fd = open(xb_path, O_RDONLY); \
-if (fd >= 0) { \
-	errchk lbuf_rd(xb, fd, 0, lbuf_len(xb)); \
-	close(fd); \
-} \
+static int ex_readfile(void)
+{
+	int fd = open(xb_path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+	int ret = lbuf_rd(xb, fd, 0, lbuf_len(xb));
+	if (!ret)
+		vi_hardwrap_all();
+	close(fd);
+	return ret;
+}
 
 int ex_edit(const char *path, int len)
 {
@@ -335,7 +340,7 @@ int ex_edit(const char *path, int len)
 		return 1;
 	}
 	bufs_switch(bufs_open(path, len));
-	readfile()
+	ex_readfile();
 	return 0;
 }
 
@@ -356,15 +361,15 @@ static void *ec_edit(char *loc, char *cmd, char *arg)
 		bufs_switch(bufs_open(arg+cd, len));
 		cd = 3; /* XXX: quick hack to indicate new lbuf */
 	}
-	readfile(rd =)
-	if (cd == 3 || (!rd && fd >= 0))
+	rd = ex_readfile();
+	if (cd == 3 || !rd)
 		ex_bufpostfix(ex_buf, arg[0]);
 	snprintf(msg, sizeof(msg), "\"%s\" %dL [%c]",
 			*xb_path ? xb_path : "unnamed", lbuf_len(xb),
-			fd < 0 || rd ? 'f' : 'r');
+			rd < 0 || rd ? 'f' : 'r');
 	if (!(xvis & 4))
 		ex_print(msg)
-	return (fd < 0 || rd) && *arg ? xuerr : NULL;
+	return (rd < 0 || rd) && *arg ? xuerr : NULL;
 }
 
 static void *ec_fuzz(char *loc, char *cmd, char *arg)
@@ -609,6 +614,7 @@ static void *ec_read(char *loc, char *cmd, char *arg)
 	xb = lb;
 	xrow = 0;
 	xoff = 0;
+	vi_hardwrap_all();
 	if (lbuf_len(lb) && ex_region(loc, &beg, &end, &o1, &o2)) {
 		ret = xrerr;
 		goto err;
