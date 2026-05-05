@@ -310,7 +310,10 @@ static int ex_read(sbuf *sb, char *msg, ins_state *is, int ps, int flg)
 		return key;
 	}
 	sbuf_str(sb, msg)
+	if (msg[0] == ':' && !msg[1])
+		led_prompt_width(conf_hwwidth);
 	key = led_prompt(sb, NULL, &xkmap, is, ps, flg);
+	led_prompt_width(0);
 	if (key == '\n' && (!*msg || strcmp(sb->s + n, msg)))
 		term_chr('\n');
 	return key;

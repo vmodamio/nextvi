@@ -15,6 +15,7 @@
 #include "vi.h"
 #include "conf.c"
 static void vi_hardwrap_all(void);
+void led_prompt_width(int width);
 #include "ex.c"
 #include "lbuf.c"
 #include "led.c"
