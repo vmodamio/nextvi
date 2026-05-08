@@ -74,7 +74,7 @@ install() {
 }
 
 print_usage() {
-    echo "Usage: $0 {install|pgobuild|build|debug|fetch|clean|bench}"
+    echo "Usage: $0 {install|pgobuild|build|noterm|debug|fetch|clean|bench}"
     exit "$1"
 }
 
@@ -92,6 +92,12 @@ while [ $# -gt 0 ] || [ "$1" = "" ]; do
         fi
         CFLAGS="$CFLAGS -O0 -g -fsanitize=address -fsanitize=undefined"
         log "$G" "Entering step: \"Append \"\$CFLAGS\" with debugging flags\""
+        set -- build "$@"
+        ;;
+    "noterm")
+        shift
+        CFLAGS="$CFLAGS -DNEXTVI_NOTERM"
+        log "$G" "Entering step: \"Append \"\$CFLAGS\" with custom keyboard/display backend flags\""
         set -- build "$@"
         ;;
     "" | "build")

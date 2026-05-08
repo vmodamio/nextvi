@@ -255,7 +255,7 @@ int uc_isbell(int c);
 int uc_acomb(int c);
 char *uc_beg(char *beg, char *s);
 
-/* term.c: managing the terminal */
+/* term.c: managing the terminal or a custom keyboard/display backend */
 extern sbuf *term_sbuf;
 extern int term_record;
 extern int term_winch;
@@ -264,7 +264,29 @@ extern int xrows, xcols;
 extern unsigned int ibuf_pos, ibuf_cnt, ibuf_sz, icmd_pos;
 extern unsigned char *ibuf, icmd[4096];
 extern unsigned int texec, tn;
+#define NEXTVI_DISPLAY_COLS	40
+#define NEXTVI_DISPLAY_ROWS	25
+#define NEXTVI_FONT_WIDTH	8
+#define NEXTVI_FONT_HEIGHT	16
+#define NEXTVI_KEY_PRESS	0x80
+#define NEXTVI_KEY_MODIFIER	0x40
+#define NEXTVI_KEY_SIDE		0x20
+#define NEXTVI_KEY_CODE_MASK	0x3f
+#define NEXTVI_MOD_CODE_MASK	0x1f
+#define NEXTVI_MOD_SHIFT	0x01
+#define NEXTVI_MOD_CTRL		0x02
+#define NEXTVI_MOD_ALT		0x04
+#define NEXTVI_MOD_WIN		0x08
+#define NEXTVI_MOD_CAPS		0x10
+#ifdef NEXTVI_NOTERM
+#define term_write(s, n)
+int nextvi_keyboard_queue_push(unsigned char event);
+int nextvi_keyboard_queue_pop(unsigned char *event);
+int nextvi_keyboard_read(unsigned char *event);
+void nextvi_display_refresh_line(int row, const char *text, int cols);
+#else
 #define term_write(s, n) if (xled) write(1, s, n);
+#endif
 void term_init(void);
 void term_done(void);
 void term_clean(void);

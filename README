@@ -1180,9 +1180,42 @@ COMPILING
      ./cbuild.sh debug
              Build with symbols, static analysis, dynamic analysis, and no
              optimizations
+     ./cbuild.sh noterm
+             Build with NEXTVI_NOTERM for a custom keyboard/display backend
      ./cbuild.sh pgobuild
              PGO build can lead to a significant performance boost on some
              application specific tasks
+
+CUSTOM KEYBOARD/DISPLAY BACKEND
+     The NEXTVI_NOTERM build removes terminal control from term.c and fixes
+     the editor display to 40 columns. The hard wrap configuration already
+     matches this width through conf_hwwidth.
+
+     Display geometry:
+             NEXTVI_DISPLAY_COLS  40
+             NEXTVI_DISPLAY_ROWS  25
+             NEXTVI_FONT_WIDTH    8
+             NEXTVI_FONT_HEIGHT   16
+
+     The display driver receives one changed text row at a time:
+             void nextvi_display_refresh_line(int row,
+                     const char *text, int cols);
+
+     Keyboard events are one byte:
+             bit 7      NEXTVI_KEY_PRESS, set for press, clear for release
+             bit 6      NEXTVI_KEY_MODIFIER, set for modifier events
+             bit 5      NEXTVI_KEY_SIDE, right side when set
+             bits 0-5   key code for ordinary keys
+
+     Modifier events use bit 6 plus a one-hot value in bits 0-4:
+             NEXTVI_MOD_SHIFT
+             NEXTVI_MOD_CTRL
+             NEXTVI_MOD_ALT
+             NEXTVI_MOD_WIN
+             NEXTVI_MOD_CAPS
+
+     A board driver can either provide nextvi_keyboard_read(), or push raw
+     events into the built-in queue with nextvi_keyboard_queue_push().
      ./cbuild.sh install
              Install vi to $DESTDIR$PREFIX/bin
      ./cbuild.sh fetch
